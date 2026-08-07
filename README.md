@@ -1,4 +1,4 @@
-# Traducteur IA 1.0
+# Traducteur IA (1.0)
 
 Traducteur IA 1.0 est une application Windows conçue pour traduire et réécrire des textes, ainsi que pour rédiger des courriels, depuis une interface graphique ou directement à partir du presse-papiers. Elle permet de travailler rapidement tout en préservant autant que possible la structure du contenu, notamment les liens, les titres, le gras et l'italique.
 
@@ -285,7 +285,7 @@ La configuration `.translator_config.json` reste obligatoire et doit être plac�
 
 ## Réalisation
 
-Ce projet a été réalisé avec l'aide de l'IA ChatGPT 5.5 et mené par :
+Ce projet a été développé avec l'aide d'OpenAI Codex et mené par :
 
 Sylvain Vuilleumier  
 Documentary engineering specialist -- EPFL  
