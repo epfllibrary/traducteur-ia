@@ -1,16 +1,16 @@
-# Traducteur 1.0 - Interface Moderne
+# Traducteur IA 1.0
 
-Une interface moderne et intuitive pour la traduction de texte utilisant des modèles d'IA locaux ou distants via une API compatible Ollama.
+Une application de traduction de texte utilisant des modèles d'IA locaux ou distants via une API compatible Ollama.
 
 ## 🖼️ Aperçu
 
-![Aperçu de l'interface du Traducteur 1.0](img/Exemple_interface.png)
+![Aperçu de l'interface de Traducteur IA 1.0](img/Exemple_interface.png)
 
 ## 🤖 Principe de fonctionnement
 
 Cette application fournit l'interface de traduction, mais n'embarque pas elle-même de grand modèle de langage (LLM). Elle envoie le texte au modèle défini dans `.translator_config.json` :
 
-- **LLM local** : Ollama et le modèle fonctionnent sur votre ordinateur. Les textes restent sur la machine, mais les performances dépendent de son processeur, de sa mémoire et éventuellement de sa carte graphique.
+- **LLM local** : Ollama et le modèle fonctionnent sur votre ordinateur. Les textes restent sur la machine, mais la vitesse dépend directement du modèle et du matériel. Un petit modèle peut fonctionner uniquement avec le processeur, mais les réponses seront souvent plus lentes. Pour une utilisation fluide, un ordinateur récent avec suffisamment de mémoire et, idéalement, une carte graphique dédiée compatible est recommandé. Plus le modèle est volumineux, plus ses besoins en mémoire et en puissance augmentent.
 - **LLM distant** : le modèle fonctionne sur un autre serveur accessible par le réseau. Configurez alors son adresse et, si nécessaire, sa clé API.
 
 Dans les deux cas, le serveur doit proposer une API compatible Ollama. L'application ne télécharge et ne démarre pas le modèle automatiquement. Pour installer Ollama, lancer un premier modèle ou comprendre son API, consultez le [guide de démarrage officiel](https://docs.ollama.com/quickstart) et la [documentation de l'API Ollama](https://docs.ollama.com/api/introduction).
@@ -20,44 +20,20 @@ Dans les deux cas, le serveur doit proposer une API compatible Ollama. L'applica
 L'installateur fourni est la méthode recommandée. Python et les dépendances du projet ne sont pas nécessaires.
 
 1. Téléchargez [`dist/traducteur-setup.exe`](dist/traducteur-setup.exe) et lancez-le.
-2. Indiquez l'adresse du serveur, le modèle par défaut et, si nécessaire, la clé API. Les valeurs proposées (`localhost` et `ministral-3:3b`) sont de simples choix par défaut : chaque champ reste modifiable.
-3. Si Ollama n'est pas détecté, choisissez si l'assistant doit télécharger et lancer son installateur officiel. Refusez cette option si vous utilisez un serveur distant.
-4. Choisissez séparément si Traducteur doit démarrer en arrière-plan et s'il doit être lancé automatiquement à l'ouverture de votre session. Le démarrage automatique est coché par défaut et reste désactivable.
-5. Terminez l'installation puis lancez Traducteur depuis le menu Démarrer ou son raccourci facultatif sur le bureau.
+2. Suivez l'assistant et adaptez les choix proposés à votre usage local ou distant.
+3. Lancez Traducteur depuis l'assistant, le menu Démarrer ou son raccourci facultatif sur le bureau.
 
-L'installateur crée automatiquement `.translator_config.json` à côté de l'application. Lors d'une mise à niveau ou d'une désinstallation, une configuration existante est conservée afin de ne pas perdre les réglages. Elle peut être supprimée manuellement si elle n'est plus utile.
+L'assistant se charge de créer `.translator_config.json`, de demander le serveur, le modèle et l'éventuelle clé API, puis de proposer l'installation d'Ollama et les options de démarrage. Les valeurs `localhost` et `ministral-3:3b` sont de simples choix par défaut et restent modifiables. Lors d'une mise à niveau ou d'une désinstallation, la configuration existante est conservée afin de ne pas perdre les réglages.
 
-L'installation facultative d'Ollama ne télécharge pas automatiquement le modèle choisi, qui peut représenter plusieurs gigaoctets. Avant la première traduction locale, ouvrez PowerShell et exécutez par exemple `ollama pull ministral-3:3b`, ou remplacez ce nom par le modèle configuré.
+> **Utilisation locale :** l'installation facultative d'Ollama ne télécharge pas automatiquement le modèle choisi, qui peut représenter plusieurs gigaoctets. Si le modèle configuré n'est pas encore présent, ouvrez PowerShell et exécutez par exemple `ollama pull ministral-3:3b`, ou remplacez ce nom par le modèle sélectionné dans l'assistant. Si les traductions locales sont lentes, cela provient généralement de la vitesse du modèle et du matériel utilisé, et non de l'interface Traducteur.
 
-Une seule instance de Traducteur peut fonctionner à la fois. L'installateur détecte également une installation déjà présente grâce à son identifiant stable : il effectue alors une mise à niveau dans le même dossier sans effacer `.translator_config.json`. Si Traducteur est encore lancé, l'assistant demande de le quitter avant de poursuivre. Une ancienne version portable enregistrée ailleurs n'est pas supprimée automatiquement et peut être effacée manuellement après vérification.
+Si Traducteur est déjà installé, l'assistant effectue automatiquement la mise à niveau dans le même dossier et conserve la configuration. Il demande de quitter l'application si elle est encore ouverte. Une ancienne version portable enregistrée ailleurs n'est pas supprimée automatiquement et peut être effacée manuellement après vérification.
 
 > **Avertissement Windows / SmartScreen :** cette version de `traducteur.exe` et de son installateur n'est pas encore signée numériquement. Windows ne peut donc pas vérifier son éditeur et peut afficher « Éditeur inconnu » ou « Windows a protégé votre ordinateur ». Si le fichier provient bien du dépôt officiel, cliquez sur **Informations complémentaires**, puis **Exécuter quand même**. Cette alerte signale l'absence de signature ; elle ne constitue pas à elle seule la détection d'un logiciel malveillant. Ne désactivez pas SmartScreen globalement. Une signature de code est prévue ultérieurement.
 
-### Version portable
-
-Pour ne rien installer :
-
-1. Téléchargez [`dist/traducteur.exe`](dist/traducteur.exe).
-2. Téléchargez [`.translator_config.example.json`](.translator_config.example.json), copiez-le dans le même dossier que l'exécutable et renommez la copie en `.translator_config.json`.
-3. Ouvrez `.translator_config.json` dans un éditeur de texte et adaptez au minimum `server_url` et `default_model`. Renseignez aussi `api_key` si le serveur distant en exige une.
-4. Si le modèle est local, installez Ollama, téléchargez le modèle configuré et démarrez Ollama.
-5. Lancez `traducteur.exe`.
-
-Le dossier utilisé doit donc contenir au minimum :
-
-```text
-Traducteur/
-├── traducteur.exe
-└── .translator_config.json
-```
-
-> **Configuration obligatoire :** l'exécutable n'intègre volontairement aucune adresse de serveur ni clé API. Si `.translator_config.json` n'est pas placé à côté de l'exécutable, l'application demandera de sélectionner un fichier de configuration à chaque démarrage.
-
-Pour un serveur local Ollama, `server_url` peut rester sur `http://localhost:11434/api/chat`. Pour un serveur distant, remplacez cette adresse et vérifiez les paramètres d'authentification avant de lancer l'application. Ne publiez jamais le fichier `.translator_config.json` contenant vos réglages réels.
-
 ## ✨ Fonctionnalités
 
-### Interface Moderne
+### Interface graphique
 - **Design professionnel** : Interface inspirée de DeepL avec CustomTkinter
 - **Thème moderne** : Couleurs et polices optimisées pour une expérience utilisateur fluide
 - **Layout équilibré** : Division 50/50 des zones de texte source et traduction
@@ -215,13 +191,12 @@ REM Après avoir créé dist\traducteur.exe et installé Inno Setup 6
 
 ### Distribution
 - **Installateur guidé inclus** : `dist/traducteur-setup.exe`, avec création de la configuration et proposition d'installation d'Ollama
-- **Exécutable inclus** : `dist/traducteur.exe` (~40-50 Mo)
-- **Test sans environnement de dev** : sur Windows, récupérez le dossier `dist/` depuis le dépôt, puis lancez `traducteur.exe`.
-- **Python non requis** : l'exécutable est autonome ; il n'est pas nécessaire d'installer Python, pip ou les dépendances du projet.
+- **Exécutable intégré** : `dist/traducteur.exe` est l'artefact autonome utilisé pour construire l'installateur
+- **Python non requis** : l'installateur fournit l'application complète ; il n'est pas nécessaire d'installer Python, pip ou les dépendances du projet
 - **Dépendances externes** : Ollama doit être installé séparément uniquement si le modèle est exécuté localement
 - **Compatibilité** : L'exécutable est spécifique au système d'exploitation
 
-L'installateur crée `.translator_config.json` avec les valeurs choisies dans l'assistant. Pour distribuer seulement la version portable, copiez `.translator_config.example.json` en `.translator_config.json` dans le dossier de l'exécutable, puis adaptez le serveur et le modèle. Le fichier `.translator_config.json` local n'est pas versionné afin d'éviter de publier des clés ou des réglages internes.
+L'installateur crée `.translator_config.json` avec les valeurs choisies dans l'assistant. Le fichier local n'est pas versionné afin d'éviter de publier des clés ou des réglages internes.
 
 #### Alternatives si pas d'accès Windows
 - **Auto Py to Exe** : Interface graphique locale pour créer des exe sur Windows
@@ -265,7 +240,7 @@ Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou pr
 
 ## 🛠️ Développement depuis les sources (optionnel)
 
-Cette section concerne les personnes qui souhaitent modifier ou reconstruire l'application. Pour une utilisation normale sous Windows, privilégiez l'exécutable présenté au début du README.
+Cette section concerne les personnes qui souhaitent modifier ou reconstruire l'application. Pour une utilisation normale sous Windows, privilégiez l'installateur présenté au début du README.
 
 ### Prérequis de développement
 
