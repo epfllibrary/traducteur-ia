@@ -1,6 +1,8 @@
 # Traducteur IA 1.0
 
-Une application de traduction de texte utilisant des modèles d'IA locaux ou distants via une API compatible Ollama.
+Traducteur IA 1.0 est une application Windows conçue pour traduire et réécrire des textes, ainsi que pour rédiger des courriels, depuis une interface graphique ou directement à partir du presse-papiers. Elle permet de travailler rapidement tout en préservant autant que possible la structure du contenu, notamment les liens, les titres, le gras et l'italique.
+
+L'application s'appuie sur un grand modèle de langage (LLM) accessible par une API compatible Ollama. Selon vos besoins, ce modèle peut être exécuté localement sur votre ordinateur ou hébergé sur un serveur distant.
 
 ## 🖼️ Aperçu
 
@@ -15,7 +17,7 @@ Cette application fournit l'interface de traduction, mais n'embarque pas elle-m�
 
 Dans les deux cas, le serveur doit proposer une API compatible Ollama. L'application ne télécharge et ne démarre pas le modèle automatiquement. Pour installer Ollama, lancer un premier modèle ou comprendre son API, consultez le [guide de démarrage officiel](https://docs.ollama.com/quickstart) et la [documentation de l'API Ollama](https://docs.ollama.com/api/introduction).
 
-## 🚀 Démarrage rapide sous Windows
+## 🚀 Installation sous Windows
 
 L'installateur fourni est la méthode recommandée. Python et les dépendances du projet ne sont pas nécessaires.
 
