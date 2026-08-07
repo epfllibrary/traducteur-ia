@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local configuration
+.translator_config.json
+
+# PyInstaller outputs
+build/
+dist/*
+*.spec.bak
+
+# Generated binaries
+*.exe
+!dist/traducteur.exe
+
+# Local examples and obsolete archives
+examples/
+archive/legacy/
+
+# Editor and OS files
+.codex
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,21 @@
+# Traducteur - Dépendances Python
+# Interface moderne de traduction avec support fichiers multiples
+
+# Interface graphique
+customtkinter>=5.2.0  # Interface moderne (optionnel)
+pystray>=0.19.0       # System tray (optionnel)
+pillow>=9.0.0         # Images pour le tray
+# tkinter  # Inclus dans Python standard
+
+# Traitement de fichiers
+pdfplumber>=0.9.0     # Extraction de texte depuis PDF
+python-docx>=0.8.11   # Lecture de fichiers Word (.docx)
+
+# Communication réseau
+requests>=2.28.0      # API HTTP pour Ollama
+
+# Raccourcis globaux
+pynput>=1.7.6         # Écoute Ctrl+Shift+C et double Ctrl+C (optionnel)
+
+# Utilitaires standards (inclus dans Python)
+# json, os, queue, re, threading, time, pathlib
