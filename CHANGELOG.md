@@ -20,8 +20,11 @@
 - **Langues configurables** : Déplacement des libellés de langues dans le JSON, avec conservation obligatoire de `auto`, `fr`, `en`, `de`, `it`, `es` et `pt`.
 - **Modèles dynamiques** : Suppression de la clé `models`; la liste provient de l'API Ollama et `default_model` sert de repli.
 - **Bouton d'action dynamique** : Son intitulé suit désormais le mode sélectionné : `Traduire`, `Réécrire` ou `E-mail`.
-- **Presse-papiers enrichi** : Conservation du gras et de l'italique HTML/CSS, conversion Markdown pour le modèle et rendu stylé dans l'interface.
+- **Presse-papiers enrichi** : Conservation des titres `h1` à `h6`, du gras et de l'italique HTML/CSS, conversion Markdown pour le modèle et rendu stylé dans l'interface.
 - **Choix du modèle clarifié** : La documentation présente `ministral-3:3b` comme simple exemple local multilingue et rappelle que tout modèle compatible peut être configuré.
+- **Démarrage Windows simplifié** : Le README met désormais l'exécutable en avant, détaille le placement obligatoire de `.translator_config.json` et reporte les instructions Python vers une section de développement en fin de document.
+- **Dépendance LLM explicitée** : Le README distingue l'utilisation d'un modèle local ou distant et renvoie vers la documentation officielle d'Ollama.
+- **Aperçu de l'interface** : Ajout d'une capture d'écran dans le README et conservation du dossier `img/` pour les illustrations de documentation.
 - **Nettoyage du dépôt** : Suppression des dossiers `examples/` et `archive/legacy/`, désormais exclus du projet.
 - **Préparation Git** : Ajout d'un fichier `LICENSE` et d'un exemple `.translator_config.example.json`.
 - **Robustesse accrue** : Booléens de config normalisés, prompts personnalisés plus tolérants, et permutation de langues corrigée quand la source vaut `auto`.

@@ -2,6 +2,41 @@
 
 Une interface moderne et intuitive pour la traduction de texte utilisant des modèles d'IA locaux ou distants via une API compatible Ollama.
 
+## 🖼️ Aperçu
+
+![Aperçu de l'interface du Traducteur 1.0](img/Exemple_interface.png)
+
+## 🤖 Principe de fonctionnement
+
+Cette application fournit l'interface de traduction, mais n'embarque pas elle-même de grand modèle de langage (LLM). Elle envoie le texte au modèle défini dans `.translator_config.json` :
+
+- **LLM local** : Ollama et le modèle fonctionnent sur votre ordinateur. Les textes restent sur la machine, mais les performances dépendent de son processeur, de sa mémoire et éventuellement de sa carte graphique.
+- **LLM distant** : le modèle fonctionne sur un autre serveur accessible par le réseau. Configurez alors son adresse et, si nécessaire, sa clé API.
+
+Dans les deux cas, le serveur doit proposer une API compatible Ollama. L'application ne télécharge et ne démarre pas le modèle automatiquement. Pour installer Ollama, lancer un premier modèle ou comprendre son API, consultez le [guide de démarrage officiel](https://docs.ollama.com/quickstart) et la [documentation de l'API Ollama](https://docs.ollama.com/api/introduction).
+
+## 🚀 Démarrage rapide sous Windows
+
+L'utilisation de l'exécutable fourni est la méthode recommandée. Python et les dépendances du projet ne sont pas nécessaires.
+
+1. Téléchargez [`dist/traducteur.exe`](dist/traducteur.exe).
+2. Téléchargez [`.translator_config.example.json`](.translator_config.example.json), copiez-le dans le même dossier que l'exécutable et renommez la copie en `.translator_config.json`.
+3. Ouvrez `.translator_config.json` dans un éditeur de texte et adaptez au minimum `server_url` et `default_model`. Renseignez aussi `api_key` si le serveur distant en exige une.
+4. Si le modèle est local, installez Ollama, téléchargez le modèle configuré et démarrez Ollama.
+5. Lancez `traducteur.exe`.
+
+Le dossier utilisé doit donc contenir au minimum :
+
+```text
+Traducteur/
+├── traducteur.exe
+└── .translator_config.json
+```
+
+> **Configuration obligatoire :** l'exécutable n'intègre volontairement aucune adresse de serveur ni clé API. Si `.translator_config.json` n'est pas placé à côté de l'exécutable, l'application demandera de sélectionner un fichier de configuration à chaque démarrage.
+
+Pour un serveur local Ollama, `server_url` peut rester sur `http://localhost:11434/api/chat`. Pour un serveur distant, remplacez cette adresse et vérifiez les paramètres d'authentification avant de lancer l'application. Ne publiez jamais le fichier `.translator_config.json` contenant vos réglages réels.
+
 ## ✨ Fonctionnalités
 
 ### Interface Moderne
@@ -21,7 +56,7 @@ Une interface moderne et intuitive pour la traduction de texte utilisant des mod
 - **Alternatives contextuelles** : Sélectionnez un mot ou une phrase dans la traduction pour afficher `Alternatives`; clic droit ou `Ctrl+L` restent disponibles
 - **Liens préservés** : Les prompts demandent explicitement de conserver les liens, URL et destinations Markdown/HTML
 - **Liens cliquables** : Les URL visibles et les liens HTML copiés depuis le presse-papiers restent cliquables; le Markdown est utilisé en interne pour préserver les liens pendant la traduction
-- **Styles préservés** : Le gras et l'italique du presse-papiers HTML sont conservés, y compris via des classes CSS (`font-weight` et `font-style`), transmis au modèle en Markdown puis rendus dans la traduction
+- **Styles préservés** : Les titres `h1` à `h6`, le gras et l'italique du presse-papiers HTML sont conservés, transmis au modèle en Markdown puis rendus dans la traduction
 - **Langues configurables** : 36 langues préconfigurées; français, anglais, allemand, italien, espagnol et portugais constituent la base obligatoire
 - **Détection automatique** : Langue source détectée automatiquement
 
@@ -35,42 +70,10 @@ Une interface moderne et intuitive pour la traduction de texte utilisant des mod
 - **Chronomètre** : Mesure précise du temps de traduction
 - **Threading optimisé** : Interface réactive pendant la traduction
 
-## 🚀 Installation
-
-### Prérequis
-- **Python 3.8+**
-- **Un accès à une API compatible Ollama**, locale ou distante
-- Pour une utilisation locale : **Ollama** installé avec le modèle de votre choix
-
-### Installation des dépendances
-```bash
-pip install -r requirements.txt
-```
-
-### Installation optionnelle (recommandée)
-```bash
-pip install customtkinter  # Interface moderne
-pip install pystray pillow # System tray
-pip install pynput         # Raccourcis globaux
-pip install pdfplumber python-docx  # Support fichiers PDF/Word
-```
-
-## 📖 Utilisation
-
-### Démarrage
-```bash
-python translate.py
-```
-
-### Structure du dépôt
-- `translate.py` : application principale actuelle.
-- `requirements.txt` : dépendances Python de la version 1.0.
-- `.translator_config.example.json` : modèle de configuration sans secret.
-- `scripts/` : scripts de build Windows.
-- `docs/` : guides détaillés et documentation complémentaire.
+## ⚙️ Configuration et utilisation
 
 ### Configuration locale avec Ollama
-1. Installez Ollama: https://ollama.ai/
+1. Installez Ollama en suivant le [guide officiel](https://docs.ollama.com/quickstart).
 2. Téléchargez un modèle, par exemple : `ollama pull ministral-3:3b`
 3. Lancez le serveur: `ollama serve`
 
@@ -108,9 +111,9 @@ Exemple :
     "pt": "Portugais"
   },
   "prompts": {
-    "traduire": "Tu es un traducteur professionnel. Traduis le texte suivant de {source_language} vers {target_language}.\n\nContraintes:\n- Préserve fidèlement le sens, le ton, la mise en forme et les sauts de ligne.\n- Préserve tous les liens, URL et destinations Markdown/HTML exactement tels qu'ils apparaissent.\n- Préserve le gras, l'italique et leurs marqueurs Markdown/HTML.\n- N'ajoute aucune explication, note ou variante.\n- Si la langue source vaut Auto, détecte-la naturellement.\n\nTexte:\n{text}",
-    "réécrire": "Tu es un réviseur éditorial franc, précis et naturel. Réécris le texte suivant en {target_language}.\n\nObjectif:\n- Améliorer la clarté, la fluidité, le style et la correction.\n- Conserver l'intention, les informations importantes et le niveau de formalité.\n- Préserver tous les liens, URL et destinations Markdown/HTML exactement tels qu'ils apparaissent.\n- Préserver le gras, l'italique et leurs marqueurs Markdown/HTML.\n- Ne pas rendre le texte artificiel ni trop emphatique.\n- Répondre uniquement avec la version réécrite.\n\nTexte:\n{text}",
-    "email": "Tu es un assistant de rédaction spécialisé dans les e-mails professionnels. Transforme le texte suivant en e-mail en {target_language}.\n\nStyle attendu:\n- Cordial, professionnel, fluide et humain.\n- Naturel, direct, sans tournures trop typiques de l'IA.\n- Poli sans être excessivement formel.\n- Structure claire avec salutation et formule de clôture si pertinent.\n- Préserver tous les liens, URL et destinations Markdown/HTML exactement tels qu'ils apparaissent.\n- Préserver le gras, l'italique et leurs marqueurs Markdown/HTML.\n- Répondre uniquement avec l'e-mail final.\n\nTexte:\n{text}",
+    "traduire": "Tu es un traducteur professionnel. Traduis le texte suivant de {source_language} vers {target_language}.\n\nContraintes:\n- Préserve fidèlement le sens, le ton, la mise en forme et les sauts de ligne.\n- Préserve tous les liens, URL et destinations Markdown/HTML exactement tels qu'ils apparaissent.\n- Préserve les titres et leurs niveaux, le gras, l'italique et leurs marqueurs Markdown/HTML.\n- N'ajoute aucune explication, note ou variante.\n- Si la langue source vaut Auto, détecte-la naturellement.\n\nTexte:\n{text}",
+    "réécrire": "Tu es un réviseur éditorial franc, précis et naturel. Réécris le texte suivant en {target_language}.\n\nObjectif:\n- Améliorer la clarté, la fluidité, le style et la correction.\n- Conserver l'intention, les informations importantes et le niveau de formalité.\n- Préserver tous les liens, URL et destinations Markdown/HTML exactement tels qu'ils apparaissent.\n- Préserver les titres et leurs niveaux, le gras, l'italique et leurs marqueurs Markdown/HTML.\n- Ne pas rendre le texte artificiel ni trop emphatique.\n- Répondre uniquement avec la version réécrite.\n\nTexte:\n{text}",
+    "email": "Tu es un assistant de rédaction spécialisé dans les e-mails professionnels. Transforme le texte suivant en e-mail en {target_language}.\n\nStyle attendu:\n- Cordial, professionnel, fluide et humain.\n- Naturel, direct, sans tournures trop typiques de l'IA.\n- Poli sans être excessivement formel.\n- Structure claire avec salutation et formule de clôture si pertinent.\n- Préserver tous les liens, URL et destinations Markdown/HTML exactement tels qu'ils apparaissent.\n- Préserver les titres et leurs niveaux, le gras, l'italique et leurs marqueurs Markdown/HTML.\n- Répondre uniquement avec l'e-mail final.\n\nTexte:\n{text}",
     "lookup": "Tu es un assistant terminologique pour la traduction et la réécriture. Propose des alternatives naturelles pour le segment sélectionné, en tenant compte du contexte.\n\nContraintes:\n- Propose 5 à 8 alternatives utiles dans la langue du segment sélectionné.\n- Explique très brièvement la nuance ou le contexte d'usage de chaque alternative.\n- Si une alternative change le registre, indique-le.\n- Ne réécris pas tout le texte.\n- Réponds en français, sauf pour les alternatives elles-mêmes.\n\nLangue source: {source_language}\nLangue cible: {target_language}\n\nTexte source:\n{text}\n\nTraduction actuelle:\n{translation}\n\nSegment sélectionné:\n{selection}"
   }
 }
@@ -137,7 +140,7 @@ Ne commitez pas `.translator_config.json` avec une vraie clé API ; ce fichier e
 - **PDF** : Extraction du texte incorporé avec `pdfplumber` (sans OCR)
 
 ### Mise en forme depuis le presse-papiers
-Lorsque du contenu rendu est copié depuis un navigateur ou une application compatible HTML, l'application reconnaît le gras et l'italique provenant des balises (`strong`, `b`, `em`, `i`), des styles en ligne et des classes CSS définies dans une balise `style`. Le code HTML copié comme simple texte n'est pas interprété : il faut copier le résultat affiché par le navigateur.
+Lorsque du contenu rendu est copié depuis un navigateur ou une application compatible HTML, l'application reconnaît les titres (`h1` à `h6`), le gras et l'italique provenant des balises (`strong`, `b`, `em`, `i`), des styles en ligne et des classes CSS définies dans une balise `style`. Les niveaux de titre sont transmis au modèle avec les marqueurs Markdown `#` à `######`, puis rendus avec une taille adaptée dans l'interface. Le code HTML copié comme simple texte n'est pas interprété : il faut copier le résultat affiché par le navigateur.
 
 ### Mode veille et raccourcis globaux
 - Cliquer sur la croix masque la fenêtre sans arrêter l'application.
@@ -233,6 +236,48 @@ Voir [CHANGELOG.md](CHANGELOG.md) pour l'historique complet des versions.
 ## 🤝 Contribution
 
 Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou proposer une pull request.
+
+## 🛠️ Développement depuis les sources (optionnel)
+
+Cette section concerne les personnes qui souhaitent modifier ou reconstruire l'application. Pour une utilisation normale sous Windows, privilégiez l'exécutable présenté au début du README.
+
+### Prérequis de développement
+
+- **Python 3.8+**
+- **Un accès à une API compatible Ollama**, locale ou distante
+- Pour une utilisation locale : **Ollama** installé avec le modèle de votre choix
+
+### Installation des dépendances
+
+```bash
+pip install -r requirements.txt
+```
+
+Les composants facultatifs peuvent aussi être installés séparément :
+
+```bash
+pip install customtkinter  # Interface moderne
+pip install pystray pillow # System tray
+pip install pynput         # Raccourcis globaux
+pip install pdfplumber python-docx  # Support fichiers PDF/Word
+```
+
+### Lancement depuis les sources
+
+```bash
+python translate.py
+```
+
+La configuration `.translator_config.json` reste obligatoire et doit être placée à côté de `translate.py`, sélectionnée au démarrage ou indiquée avec `TRANSLATOR_CONFIG`.
+
+### Structure du dépôt
+
+- `translate.py` : application principale actuelle.
+- `requirements.txt` : dépendances Python de la version 1.0.
+- `.translator_config.example.json` : modèle de configuration sans secret.
+- `img/` : captures d'écran utilisées dans la documentation.
+- `scripts/` : scripts de build Windows.
+- `docs/` : guides détaillés et documentation complémentaire.
 
 ## Réalisation
 

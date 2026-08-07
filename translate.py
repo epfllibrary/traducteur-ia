@@ -94,6 +94,9 @@ PROMPT_VARIABLES = {
 }
 URL_PATTERN = re.compile(r"https?://[^\s<>'\"\]\)]+[^\s<>'\"\]\).,;:!?]")
 MARKDOWN_LINK_PATTERN = re.compile(r"\[([^\]\n]+)\]\((https?://[^\s<>\)]+)\)")
+HEADING_STYLES = tuple(f"heading{level}" for level in range(1, 7))
+RICH_STYLE_NAMES = {"bold", "italic", *HEADING_STYLES}
+HEADING_FONT_SIZES = {1: 20, 2: 18, 3: 16, 4: 14, 5: 12, 6: 11}
 
 
 class ClipboardHtmlParser(HTMLParser):
@@ -146,6 +149,8 @@ class ClipboardHtmlParser(HTMLParser):
             opened_styles.add("bold")
         if tag in {"i", "em"}:
             opened_styles.add("italic")
+        if re.fullmatch(r"h[1-6]", tag):
+            opened_styles.add(f"heading{tag[1]}")
 
         for class_name in attrs.get("class", "").split():
             self._apply_css_styles(opened_styles, self._css_class_styles.get(class_name, {}))
@@ -339,7 +344,7 @@ def _parse_clipboard_html(raw_html):
     for start, end, style in parser.styles:
         start -= leading_whitespace
         end -= leading_whitespace
-        if style in {"bold", "italic"} and 0 <= start < end <= len(text):
+        if style in RICH_STYLE_NAMES and 0 <= start < end <= len(text):
             styles.append((start, end, style))
     return text, links, styles
 
@@ -422,25 +427,73 @@ def _markdown_emphasis_to_text(markdown_text):
     return "".join(clean_parts), styles, boundary_map
 
 
-def _markdown_to_rich_text(markdown_text):
-    """Convertit les liens et emphases Markdown en texte riche."""
-    text_with_emphasis, links = _markdown_links_to_text(markdown_text)
-    clean_text, styles, boundary_map = _markdown_emphasis_to_text(text_with_emphasis)
-    adjusted_links = [
-        (boundary_map[start], boundary_map[end], url)
-        for start, end, url in links
+def _markdown_headings_to_text(markdown_text):
+    """Retire les préfixes de titres Markdown et retourne leurs plages."""
+    removed = set()
+    original_styles = []
+    pattern = re.compile(r"(?m)^ {0,3}(#{1,6})[ \t]+(?=\S)")
+
+    for match in pattern.finditer(markdown_text):
+        content_start = match.end()
+        content_end = markdown_text.find("\n", content_start)
+        if content_end < 0:
+            content_end = len(markdown_text)
+        if content_start >= content_end:
+            continue
+        removed.update(range(match.start(), match.end()))
+        original_styles.append(
+            (content_start, content_end, f"heading{len(match.group(1))}")
+        )
+
+    clean_parts = []
+    boundary_map = [0] * (len(markdown_text) + 1)
+    for index, character in enumerate(markdown_text):
+        boundary_map[index] = len(clean_parts)
+        if index not in removed:
+            clean_parts.append(character)
+        boundary_map[index + 1] = len(clean_parts)
+
+    styles = [
+        (boundary_map[start], boundary_map[end], style)
+        for start, end, style in original_styles
         if boundary_map[start] < boundary_map[end]
     ]
-    return clean_text, adjusted_links, styles
+    return "".join(clean_parts), styles, boundary_map
+
+
+def _markdown_to_rich_text(markdown_text):
+    """Convertit les liens, emphases et titres Markdown en texte riche."""
+    text_with_emphasis, links = _markdown_links_to_text(markdown_text)
+    text_with_headings, styles, emphasis_map = _markdown_emphasis_to_text(text_with_emphasis)
+    clean_text, heading_styles, heading_map = _markdown_headings_to_text(text_with_headings)
+    adjusted_links = [
+        (heading_map[emphasis_map[start]], heading_map[emphasis_map[end]], url)
+        for start, end, url in links
+        if heading_map[emphasis_map[start]] < heading_map[emphasis_map[end]]
+    ]
+    adjusted_styles = [
+        (heading_map[start], heading_map[end], style)
+        for start, end, style in styles
+        if heading_map[start] < heading_map[end]
+    ]
+    return clean_text, adjusted_links, adjusted_styles + heading_styles
 
 
 def _rich_text_to_markdown(text, links=None, styles=None):
     """Sérialise les plages riches en Markdown sans modifier le texte affiché."""
     openings = {}
     closings = {}
+    heading_prefixes = {}
 
     for start, end, style in styles or []:
-        if not (0 <= start < end <= len(text)) or style not in {"bold", "italic"}:
+        if not (0 <= start < end <= len(text)):
+            continue
+        if style in HEADING_STYLES:
+            if start == 0 or text[start - 1] == "\n":
+                level = int(style[len("heading"):])
+                heading_prefixes.setdefault(start, []).append(f"{'#' * level} ")
+            continue
+        if style not in {"bold", "italic"}:
             continue
         marker = "**" if style == "bold" else "*"
         priority = 1 if style == "bold" else 2
@@ -459,6 +512,8 @@ def _rich_text_to_markdown(text, links=None, styles=None):
             closings.get(position, []),
             key=lambda item: (-item[0], item[1]),
         ):
+            parts.append(marker)
+        for marker in sorted(heading_prefixes.get(position, []), key=len):
             parts.append(marker)
         for _end, _priority, marker in sorted(
             openings.get(position, []),
@@ -1357,6 +1412,23 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
             widget.tag_configure("rich_italic", font=("Arial", 11, "italic"))
             widget.tag_configure("rich_bold_italic", font=("Arial", 11, "bold italic"))
             widget.tag_raise("rich_bold_italic")
+            for level, font_size in HEADING_FONT_SIZES.items():
+                tag = f"rich_heading{level}"
+                widget.tag_configure(
+                    tag,
+                    font=("Arial", font_size, "bold"),
+                    spacing1=4 if level <= 3 else 2,
+                    spacing3=3 if level <= 3 else 1,
+                )
+                widget.tag_raise(tag)
+                italic_tag = f"{tag}_italic"
+                widget.tag_configure(
+                    italic_tag,
+                    font=("Arial", font_size, "bold italic"),
+                    spacing1=4 if level <= 3 else 2,
+                    spacing3=3 if level <= 3 else 1,
+                )
+                widget.tag_raise(italic_tag)
             widget.tag_bind(
                 "link",
                 "<Enter>",
@@ -1429,7 +1501,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                 widget.tag_add("link", start, end)
 
     def _paste_rich_clipboard(self, event):
-        """Colle les liens, le gras et l'italique du presse-papiers riche."""
+        """Colle les liens et styles du presse-papiers riche."""
         widget = event.widget
         text, links, styles = self._get_rich_clipboard_content()
         if not text:
@@ -1483,7 +1555,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
             end = widget.index(f"{insert_index}+{end_offset}c")
             self._add_rich_link_tag(widget, prefix, start, end, url)
         for start_offset, end_offset, style in styles:
-            if style not in {"bold", "italic"}:
+            if style not in RICH_STYLE_NAMES:
                 continue
             start = widget.index(f"{insert_index}+{start_offset}c")
             end = widget.index(f"{insert_index}+{end_offset}c")
@@ -1496,7 +1568,13 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         styles = styles or []
         prefix = self._link_prefix_for_widget(widget)
         self._clear_rich_link_tags(widget, prefix)
-        for tag in ("rich_bold", "rich_italic", "rich_bold_italic"):
+        for tag in (
+            "rich_bold",
+            "rich_italic",
+            "rich_bold_italic",
+            *(f"rich_{style}" for style in HEADING_STYLES),
+            *(f"rich_{style}_italic" for style in HEADING_STYLES),
+        ):
             widget.tag_remove(tag, "1.0", tk.END)
         widget.delete("1.0", tk.END)
         widget.insert("1.0", text)
@@ -1507,7 +1585,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
             end = widget.index(f"1.0+{end_offset}c")
             self._add_rich_link_tag(widget, prefix, start, end, url)
         for start_offset, end_offset, style in styles:
-            if style not in {"bold", "italic"}:
+            if style not in RICH_STYLE_NAMES:
                 continue
             start = widget.index(f"1.0+{start_offset}c")
             end = widget.index(f"1.0+{end_offset}c")
@@ -1516,7 +1594,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         self._schedule_link_refresh()
 
     def _render_markdown_links_in_widget(self, widget):
-        """Rend les liens, le gras et l'italique Markdown dans le widget."""
+        """Rend les liens et styles Markdown dans le widget."""
         markdown_text = widget.get("1.0", tk.END).rstrip("\n")
         clean_text, links, styles = _markdown_to_rich_text(markdown_text)
         if clean_text != markdown_text or links or styles:
@@ -1544,7 +1622,9 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                     links.append((start, end, url))
 
         styles = []
-        for tag, style in (("rich_bold", "bold"), ("rich_italic", "italic")):
+        style_tags = [("rich_bold", "bold"), ("rich_italic", "italic")]
+        style_tags.extend((f"rich_{style}", style) for style in HEADING_STYLES)
+        for tag, style in style_tags:
             ranges = widget.tag_ranges(tag)
             for start_index, end_index in zip(ranges[0::2], ranges[1::2]):
                 try:
@@ -1565,7 +1645,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         return int(count[0]) if count else 0
 
     def _refresh_combined_style_tag(self, widget):
-        """Rend correctement les zones qui sont à la fois grasses et italiques."""
+        """Rend les combinaisons gras/italique et titre/italique."""
         widget.tag_remove("rich_bold_italic", "1.0", tk.END)
         bold_ranges = widget.tag_ranges("rich_bold")
         italic_ranges = widget.tag_ranges("rich_italic")
@@ -1575,6 +1655,25 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                 end = italic_end if widget.compare(italic_end, "<", bold_end) else bold_end
                 if widget.compare(start, "<", end):
                     widget.tag_add("rich_bold_italic", start, end)
+
+        for heading_style in HEADING_STYLES:
+            combined_tag = f"rich_{heading_style}_italic"
+            widget.tag_remove(combined_tag, "1.0", tk.END)
+            heading_ranges = widget.tag_ranges(f"rich_{heading_style}")
+            for heading_start, heading_end in zip(heading_ranges[0::2], heading_ranges[1::2]):
+                for italic_start, italic_end in zip(italic_ranges[0::2], italic_ranges[1::2]):
+                    start = (
+                        italic_start
+                        if widget.compare(italic_start, ">", heading_start)
+                        else heading_start
+                    )
+                    end = (
+                        italic_end
+                        if widget.compare(italic_end, "<", heading_end)
+                        else heading_end
+                    )
+                    if widget.compare(start, "<", end):
+                        widget.tag_add(combined_tag, start, end)
 
     def _clear_rich_link_tags(self, widget, prefix):
         """Supprime les liens cachés d'un widget."""
