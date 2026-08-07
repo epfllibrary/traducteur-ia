@@ -17,7 +17,25 @@ Dans les deux cas, le serveur doit proposer une API compatible Ollama. L'applica
 
 ## 🚀 Démarrage rapide sous Windows
 
-L'utilisation de l'exécutable fourni est la méthode recommandée. Python et les dépendances du projet ne sont pas nécessaires.
+L'installateur fourni est la méthode recommandée. Python et les dépendances du projet ne sont pas nécessaires.
+
+1. Téléchargez [`dist/traducteur-setup.exe`](dist/traducteur-setup.exe) et lancez-le.
+2. Indiquez l'adresse du serveur, le modèle par défaut et, si nécessaire, la clé API. Les valeurs proposées (`localhost` et `ministral-3:3b`) sont de simples choix par défaut : chaque champ reste modifiable.
+3. Si Ollama n'est pas détecté, choisissez si l'assistant doit télécharger et lancer son installateur officiel. Refusez cette option si vous utilisez un serveur distant.
+4. Choisissez séparément si Traducteur doit démarrer en arrière-plan et s'il doit être lancé automatiquement à l'ouverture de votre session. Le démarrage automatique est coché par défaut et reste désactivable.
+5. Terminez l'installation puis lancez Traducteur depuis le menu Démarrer ou son raccourci facultatif sur le bureau.
+
+L'installateur crée automatiquement `.translator_config.json` à côté de l'application. Lors d'une mise à niveau ou d'une désinstallation, une configuration existante est conservée afin de ne pas perdre les réglages. Elle peut être supprimée manuellement si elle n'est plus utile.
+
+L'installation facultative d'Ollama ne télécharge pas automatiquement le modèle choisi, qui peut représenter plusieurs gigaoctets. Avant la première traduction locale, ouvrez PowerShell et exécutez par exemple `ollama pull ministral-3:3b`, ou remplacez ce nom par le modèle configuré.
+
+Une seule instance de Traducteur peut fonctionner à la fois. L'installateur détecte également une installation déjà présente grâce à son identifiant stable : il effectue alors une mise à niveau dans le même dossier sans effacer `.translator_config.json`. Si Traducteur est encore lancé, l'assistant demande de le quitter avant de poursuivre. Une ancienne version portable enregistrée ailleurs n'est pas supprimée automatiquement et peut être effacée manuellement après vérification.
+
+> **Avertissement Windows / SmartScreen :** cette version de `traducteur.exe` et de son installateur n'est pas encore signée numériquement. Windows ne peut donc pas vérifier son éditeur et peut afficher « Éditeur inconnu » ou « Windows a protégé votre ordinateur ». Si le fichier provient bien du dépôt officiel, cliquez sur **Informations complémentaires**, puis **Exécuter quand même**. Cette alerte signale l'absence de signature ; elle ne constitue pas à elle seule la détection d'un logiciel malveillant. Ne désactivez pas SmartScreen globalement. Une signature de code est prévue ultérieurement.
+
+### Version portable
+
+Pour ne rien installer :
 
 1. Téléchargez [`dist/traducteur.exe`](dist/traducteur.exe).
 2. Téléchargez [`.translator_config.example.json`](.translator_config.example.json), copiez-le dans le même dossier que l'exécutable et renommez la copie en `.translator_config.json`.
@@ -44,6 +62,9 @@ Pour un serveur local Ollama, `server_url` peut rester sur `http://localhost:114
 - **Thème moderne** : Couleurs et polices optimisées pour une expérience utilisateur fluide
 - **Layout équilibré** : Division 50/50 des zones de texte source et traduction
 - **Mode veille** : La croix masque la fenêtre, l'application reste active en arrière-plan
+- **Démarrage automatique optionnel** : L'installateur peut ajouter un raccourci au démarrage de la session Windows
+- **Arrière-plan indépendant** : Le lancement automatique et l'affichage en arrière-plan sont deux choix distincts
+- **Instance unique** : Un second lancement est détecté afin d'éviter plusieurs icônes et écouteurs globaux concurrents
 - **System Tray** : L'application reste active en arrière-plan dans la barre des tâches
 - **Raccourcis globaux** : Double Ctrl+C ou Ctrl+Shift+C pour afficher la fenêtre et traduire automatiquement le presse-papier
 
@@ -181,22 +202,26 @@ pyinstaller --onefile --windowed --name traducteur translate.py
 #### Scripts automatisés
 - `scripts/build_windows.ps1` : Script PowerShell (recommandé)
 - `scripts/build_windows.bat` : Script batch pour cmd
+- `scripts/build_installer.ps1` : compilation de l'installateur avec Inno Setup 6
 
 #### Utilisation des scripts
 ```cmd
 REM Télécharger/cloner le projet sur Windows
-REM Ouvrir PowerShell en tant qu'administrateur
 .\scripts\build_windows.ps1
+
+REM Après avoir créé dist\traducteur.exe et installé Inno Setup 6
+.\scripts\build_installer.ps1
 ```
 
 ### Distribution
+- **Installateur guidé inclus** : `dist/traducteur-setup.exe`, avec création de la configuration et proposition d'installation d'Ollama
 - **Exécutable inclus** : `dist/traducteur.exe` (~40-50 Mo)
 - **Test sans environnement de dev** : sur Windows, récupérez le dossier `dist/` depuis le dépôt, puis lancez `traducteur.exe`.
 - **Python non requis** : l'exécutable est autonome ; il n'est pas nécessaire d'installer Python, pip ou les dépendances du projet.
 - **Dépendances externes** : Ollama doit être installé séparément uniquement si le modèle est exécuté localement
 - **Compatibilité** : L'exécutable est spécifique au système d'exploitation
 
-Avant de distribuer l'application, copiez `.translator_config.example.json` en `.translator_config.json` dans le dossier `dist/`, puis adaptez le serveur et le modèle. Sans ce fichier, l'exécutable demandera à l'utilisateur d'en sélectionner un. Le fichier `.translator_config.json` local n'est pas versionné afin d'éviter de publier des clés ou des réglages internes.
+L'installateur crée `.translator_config.json` avec les valeurs choisies dans l'assistant. Pour distribuer seulement la version portable, copiez `.translator_config.example.json` en `.translator_config.json` dans le dossier de l'exécutable, puis adaptez le serveur et le modèle. Le fichier `.translator_config.json` local n'est pas versionné afin d'éviter de publier des clés ou des réglages internes.
 
 #### Alternatives si pas d'accès Windows
 - **Auto Py to Exe** : Interface graphique locale pour créer des exe sur Windows
@@ -205,6 +230,7 @@ Avant de distribuer l'application, copiez `.translator_config.example.json` en `
 ### Scripts de build
 - `scripts/build_windows.ps1` : PowerShell (recommandé)
 - `scripts/build_windows.bat` : Command prompt
+- `scripts/build_installer.ps1` : installateur Windows avec Inno Setup 6
 - `docs/BUILD_INSTRUCTIONS.md` : Guide détaillé
 
 #### Services en ligne
@@ -276,7 +302,8 @@ La configuration `.translator_config.json` reste obligatoire et doit être plac�
 - `requirements.txt` : dépendances Python de la version 1.0.
 - `.translator_config.example.json` : modèle de configuration sans secret.
 - `img/` : captures d'écran utilisées dans la documentation.
-- `scripts/` : scripts de build Windows.
+- `installer/` : définition de l'installateur Windows Inno Setup.
+- `scripts/` : scripts de build de l'exécutable et de l'installateur Windows.
 - `docs/` : guides détaillés et documentation complémentaire.
 
 ## Réalisation

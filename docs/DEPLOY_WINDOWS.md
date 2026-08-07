@@ -48,9 +48,12 @@ pyinstaller --onefile --windowed --name traducteur translate.py
 ```
 
 ## Distribution
-- Copier `dist/traducteur.exe` sur le système cible
-- Copier obligatoirement `.translator_config.json` à côté de l'exécutable et y définir le serveur et le modèle
+- Méthode recommandée : distribuer `dist/traducteur-setup.exe`; son assistant crée la configuration et peut proposer l'installation officielle d'Ollama
+- Version portable : copier `dist/traducteur.exe` sur le système cible et placer obligatoirement `.translator_config.json` à côté
 - Pour un usage local : installer Ollama séparément et télécharger le modèle configuré
+- Le raccourci de démarrage automatique est proposé par défaut et peut être désélectionné indépendamment du réglage d'affichage en arrière-plan
+- Une installation existante utilisant le même `AppId` est mise à niveau sur place; aucune désinstallation préalable n'est nécessaire
+- Si l'application est en cours d'exécution, l'assistant demande de la quitter avant l'installation ou la désinstallation
 
 ## Utilisation
 1. Pour un usage local, lancer Ollama : `ollama serve`
@@ -69,13 +72,21 @@ pyinstaller --onefile --windowed --name traducteur translate.py
 ### Scripts disponibles (Corrigés)
 - `scripts/build_windows.ps1` : Script PowerShell (recommandé)
 - `scripts/build_windows.bat` : Script batch pour cmd
+- `scripts/build_installer.ps1` : Script PowerShell pour Inno Setup 6
 - `docs/BUILD_INSTRUCTIONS.md` : Instructions détaillées
 
 ### Utilisation
 ```cmd
 REM Sur Windows, dans le dossier du projet
 .\scripts\build_windows.ps1
+
+REM Puis, après installation d'Inno Setup 6
+.\scripts\build_installer.ps1
 ```
+
+## Alerte Windows actuelle
+
+L'exécutable et l'installateur ne sont pas encore signés numériquement. Windows peut donc afficher « Éditeur inconnu » ou une alerte SmartScreen. Il ne faut jamais recommander de désactiver SmartScreen globalement; l'utilisateur ne doit poursuivre que si le fichier provient du dépôt officiel. Cette limitation sera levée lorsque le projet disposera d'un certificat de signature de code.
 
 ### Dépannage des scripts
 - **Erreur d'encodage** : Scripts corrigés avec caractères ASCII simples

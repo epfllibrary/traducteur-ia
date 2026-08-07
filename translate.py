@@ -21,6 +21,9 @@ import requests
 
 APP_NAME = "Traducteur"
 APP_VERSION = "1.0"
+APP_MUTEX_NAME = "TraducteurAppMutex-8E28A203-8A35-4F78-BE6B-FD0718E146AD"
+START_HIDDEN = any(argument.lower() in {"--hidden", "--startup"} for argument in sys.argv[1:])
+_APP_MUTEX_HANDLE = None
 
 try:
     import customtkinter as ctk
@@ -760,6 +763,52 @@ def load_config(config_path=None, ask_if_missing=True):
     return config
 
 
+def _acquire_single_instance_mutex():
+    """Empêche plusieurs instances de l'application sous Windows."""
+    global _APP_MUTEX_HANDLE
+    if os.name != "nt":
+        return True
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateMutexW.argtypes = (ctypes.c_void_p, ctypes.c_bool, ctypes.c_wchar_p)
+    kernel32.CreateMutexW.restype = ctypes.c_void_p
+    kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
+    kernel32.CloseHandle.restype = ctypes.c_bool
+
+    ctypes.set_last_error(0)
+    handle = kernel32.CreateMutexW(None, False, APP_MUTEX_NAME)
+    if not handle:
+        return True
+    if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS
+        kernel32.CloseHandle(handle)
+        return False
+
+    _APP_MUTEX_HANDLE = handle
+    return True
+
+
+def _notify_already_running():
+    """Informe l'utilisateur qu'une instance existe déjà."""
+    if START_HIDDEN:
+        return
+    root = tk.Tk()
+    try:
+        root.withdraw()
+        root.attributes("-topmost", True)
+        messagebox.showinfo(
+            APP_NAME,
+            "Traducteur est déjà lancé. Utilisez son icône dans la barre système pour l'afficher.",
+            parent=root,
+        )
+    finally:
+        root.destroy()
+
+
+if __name__ == "__main__" and not _acquire_single_instance_mutex():
+    _notify_already_running()
+    raise SystemExit(0)
+
+
 try:
     CONFIG = load_config()
 except ConfigError as exc:
@@ -840,9 +889,10 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         if KEYBOARD_SUPPORT:
             self._start_global_hotkey()
 
-        if CONFIG.get("hide_window_on_start") and (TRAY_SUPPORT or KEYBOARD_SUPPORT):
+        hide_on_start = START_HIDDEN or CONFIG.get("hide_window_on_start")
+        if hide_on_start and (TRAY_SUPPORT or KEYBOARD_SUPPORT):
             self.after(0, self._hide_window)
-        elif CONFIG.get("hide_window_on_start"):
+        elif hide_on_start:
             self.set_status_text(
                 self.status_label,
                 "Démarrage masqué ignoré: tray et raccourcis globaux indisponibles",

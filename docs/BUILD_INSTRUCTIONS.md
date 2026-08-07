@@ -10,7 +10,7 @@
 
 ### Sur Windows avec PowerShell (Recommandé)
 1. Copiez tous les fichiers du projet sur Windows
-2. Ouvrez PowerShell en tant qu'administrateur
+2. Ouvrez PowerShell
 3. Allez dans le dossier du projet
 4. Exécutez : `.\scripts\build_windows.ps1`
 
@@ -43,6 +43,20 @@ Assurez-vous d'avoir ces fichiers dans le même dossier :
 - Dossier `dist/` créé avec `traducteur.exe`
 - Taille approximative : 50 Mo
 - Exécutable standalone (pas besoin de Python sur le système cible)
+
+## Création de l'installateur guidé
+
+Après avoir créé `dist/traducteur.exe` :
+
+1. Installez [Inno Setup 6](https://jrsoftware.org/isinfo.php), ou exécutez `winget install --id JRSoftware.InnoSetup -e`.
+2. Lancez `.\scripts\build_installer.ps1` depuis PowerShell.
+3. Récupérez `dist\traducteur-setup.exe`.
+
+L'assistant propose des valeurs modifiables pour le serveur et le modèle, crée la configuration si elle n'existe pas et conserve celle-ci lors d'une mise à niveau ou d'une désinstallation. Il sépare le réglage d'affichage en arrière-plan de la création du raccourci dans le dossier de démarrage Windows. Si Ollama n'est pas détecté, il demande avant de télécharger et lancer l'installateur officiel. Le modèle lui-même doit ensuite être téléchargé séparément avec `ollama pull <modèle>`.
+
+Le même `AppId` doit être conservé entre les versions : Inno Setup reconnaît ainsi l'installation existante, réutilise son dossier et met les fichiers à jour sans désinstallation préalable. Les mutex de l'application et du programme d'installation empêchent les exécutions concurrentes.
+
+L'installateur et l'exécutable ne sont pas encore signés. Une alerte SmartScreen est donc possible jusqu'à l'ajout d'un certificat de signature de code.
 
 ## Utilisation de l'exécutable
 1. Copiez `.translator_config.example.json` en `dist/.translator_config.json` et adaptez le serveur et le modèle.

@@ -2,6 +2,10 @@
 
 ## 1.0 (Courant)
 ### Nouvelles fonctionnalités
+- **Installateur Windows guidé** : Ajout d'un assistant par utilisateur qui propose des valeurs modifiables pour le serveur, le modèle et la clé API, puis crée `.translator_config.json` sans écraser une configuration existante.
+- **Accompagnement Ollama** : Lorsque Ollama n'est pas détecté, l'assistant demande avant de télécharger et lancer son installateur officiel; l'option peut être refusée pour un serveur distant.
+- **Démarrage avec Windows** : L'installateur sépare le raccourci de démarrage automatique, activé par défaut, du choix de lancer Traducteur en arrière-plan.
+- **Instance et mise à niveau sécurisées** : Ajout de mutex pour empêcher plusieurs instances de l'application ou de l'installateur et détection des mises à niveau par l'`AppId` stable.
 - **Prompts configurables** : Ajout de prompts dédiés dans `.translator_config.json` pour `traduire`, `réécrire` et `email`.
 - **Modes en français** : Les intitulés de l'interface affichent maintenant `Traduire`, `Réécrire` et `E-mail`.
 - **Démarrage masqué optionnel** : Nouveau paramètre `hide_window_on_start` pour lancer l'application directement en arrière-plan.
@@ -25,6 +29,7 @@
 - **Démarrage Windows simplifié** : Le README met désormais l'exécutable en avant, détaille le placement obligatoire de `.translator_config.json` et reporte les instructions Python vers une section de développement en fin de document.
 - **Dépendance LLM explicitée** : Le README distingue l'utilisation d'un modèle local ou distant et renvoie vers la documentation officielle d'Ollama.
 - **Aperçu de l'interface** : Ajout d'une capture d'écran dans le README et conservation du dossier `img/` pour les illustrations de documentation.
+- **Alerte Windows documentée** : Le README explique l'avertissement SmartScreen causé par l'absence actuelle de signature et déconseille de désactiver cette protection globalement.
 - **Nettoyage du dépôt** : Suppression des dossiers `examples/` et `archive/legacy/`, désormais exclus du projet.
 - **Préparation Git** : Ajout d'un fichier `LICENSE` et d'un exemple `.translator_config.example.json`.
 - **Robustesse accrue** : Booléens de config normalisés, prompts personnalisés plus tolérants, et permutation de langues corrigée quand la source vaut `auto`.
