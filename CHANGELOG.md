@@ -23,6 +23,7 @@
 
 ### Corrections
 
+- **Anciennes installations sans désinstalleur** : l'assistant peut désormais supprimer proprement une version portable ou incomplète lorsqu'aucun `uninsXXX.exe` n'est disponible; il reconnaît aussi les chemins de désinstallation contenant des paramètres.
 - **URL d'inférence exacte** : suppression de l'ajout automatique de `/api/chat`; `server_url` et `models_url` sont désormais utilisées exactement telles qu'elles sont configurées.
 - **Compatibilité des endpoints OpenAI** : le corps de requête et le parsing utilisent automatiquement `messages` pour `/chat/completions` et `prompt` pour `/completions`.
 - **Rafraîchissement des modèles** : la liste déroulante est mise à jour après une modification de configuration et ne conserve pas les modèles d'un ancien serveur.

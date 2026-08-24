@@ -9,6 +9,9 @@
 #ifndef MyAppExeSource
 #define MyAppExeSource "..\bin\traducteur.exe"
 #endif
+#ifndef MyOutputBaseFilename
+#define MyOutputBaseFilename "traducteur-setup"
+#endif
 
 [Setup]
 AppId={{8E28A203-8A35-4F78-BE6B-FD0718E146AD}
@@ -26,7 +29,7 @@ SetupMutex={#SetupMutexName}
 CloseApplications=yes
 RestartApplications=no
 OutputDir=..\bin
-OutputBaseFilename=traducteur-setup
+OutputBaseFilename={#MyOutputBaseFilename}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -91,6 +94,81 @@ begin
   Result := ExpandConstant('{app}\.translator_state.json');
 end;
 
+function UninstallRegistryKey: String;
+begin
+  Result :=
+    'Software\Microsoft\Windows\CurrentVersion\Uninstall\' +
+      '{8E28A203-8A35-4F78-BE6B-FD0718E146AD}_is1';
+end;
+
+function ExtractExecutablePath(const CommandLine: String): String;
+var
+  Value: String;
+  LowerValue: String;
+  ClosingQuote: Integer;
+  ExeEnd: Integer;
+begin
+  Result := '';
+  Value := Trim(CommandLine);
+  if Value = '' then
+    Exit;
+
+  if Value[1] = '"' then
+  begin
+    Delete(Value, 1, 1);
+    ClosingQuote := Pos('"', Value);
+    if ClosingQuote > 0 then
+      Result := Copy(Value, 1, ClosingQuote - 1)
+    else
+      Result := Value;
+    Exit;
+  end;
+
+  LowerValue := Lowercase(Value);
+  ExeEnd := Pos('.exe', LowerValue);
+  if ExeEnd > 0 then
+    Result := Copy(Value, 1, ExeEnd + 3)
+  else
+    Result := RemoveQuotes(Value);
+end;
+
+function UninstallerFileName(Index: Integer): String;
+begin
+  if Index < 10 then
+    Result := 'unins00' + IntToStr(Index) + '.exe'
+  else if Index < 100 then
+    Result := 'unins0' + IntToStr(Index) + '.exe'
+  else
+    Result := 'unins' + IntToStr(Index) + '.exe';
+end;
+
+function FindExistingUninstaller(
+  const RegisteredCommand: String;
+  const InstallLocation: String
+): String;
+var
+  Candidate: String;
+  Index: Integer;
+begin
+  Result := ExtractExecutablePath(RegisteredCommand);
+  if (Result <> '') and FileExists(Result) then
+    Exit;
+
+  Result := '';
+  if InstallLocation = '' then
+    Exit;
+
+  for Index := 0 to 99 do
+  begin
+    Candidate := AddBackslash(InstallLocation) + UninstallerFileName(Index);
+    if FileExists(Candidate) then
+    begin
+      Result := Candidate;
+      Exit;
+    end;
+  end;
+end;
+
 function DetectExistingInstallation: Boolean;
 var
   RegistryKey: String;
@@ -99,8 +177,7 @@ begin
   Result := False;
   ExistingUninstaller := '';
   ExistingInstallLocation := '';
-  RegistryKey :=
-    'Software\Microsoft\Windows\CurrentVersion\Uninstall\{8E28A203-8A35-4F78-BE6B-FD0718E146AD}_is1';
+  RegistryKey := UninstallRegistryKey;
 
   if RegQueryStringValue(HKCU, RegistryKey, 'UninstallString', ExistingUninstaller) then
   begin
@@ -121,12 +198,17 @@ begin
   DefaultLocation := ExpandConstant('{userpf}\Traducteur');
   if Result and (ExistingInstallLocation = '') then
     ExistingInstallLocation := DefaultLocation;
+  if Result then
+    ExistingUninstaller := FindExistingUninstaller(
+      ExistingUninstaller,
+      ExistingInstallLocation
+    );
   if not Result and
     (FileExists(AddBackslash(DefaultLocation) + '{#MyAppExeName}') or
      FileExists(AddBackslash(DefaultLocation) + '.translator_config.json')) then
   begin
     ExistingInstallLocation := DefaultLocation;
-    ExistingUninstaller := AddBackslash(DefaultLocation) + 'unins000.exe';
+    ExistingUninstaller := FindExistingUninstaller('', DefaultLocation);
     Result := True;
   end;
 end;
@@ -463,6 +545,66 @@ begin
   DeleteFile(AddBackslash(InstallLocation) + '.translator_state.json');
 end;
 
+procedure DeleteUninstallRegistryEntries;
+var
+  RegistryKey: String;
+begin
+  RegistryKey := UninstallRegistryKey;
+  RegDeleteKeyIncludingSubkeys(HKCU, RegistryKey);
+  RegDeleteKeyIncludingSubkeys(HKLM, RegistryKey);
+  RegDeleteKeyIncludingSubkeys(HKLM64, RegistryKey);
+end;
+
+function RemoveInstallationWithoutUninstaller(
+  PreserveConfiguration: Boolean
+): Boolean;
+var
+  ApplicationPath: String;
+  Index: Integer;
+  UninstallerBasePath: String;
+begin
+  Result := False;
+  if ExistingInstallLocation = '' then
+    Exit;
+
+  ApplicationPath := AddBackslash(ExistingInstallLocation) +
+    '{#MyAppExeName}';
+  if FileExists(ApplicationPath) and not DeleteFile(ApplicationPath) then
+  begin
+    MsgBox(
+      'L''ancienne version de Traducteur n''a pas pu être supprimée. Vérifiez que ' +
+        'l''application est fermée, puis réessayez.',
+      mbError,
+      MB_OK
+    );
+    Exit;
+  end;
+
+  DeleteFile(
+    AddBackslash(ExistingInstallLocation) + '.translator_config.example.json'
+  );
+  for Index := 0 to 99 do
+  begin
+    UninstallerBasePath := AddBackslash(ExistingInstallLocation) +
+      ChangeFileExt(UninstallerFileName(Index), '');
+    DeleteFile(UninstallerBasePath + '.dat');
+    DeleteFile(UninstallerBasePath + '.msg');
+  end;
+
+  DeleteFile(ExpandConstant('{group}\Traducteur.lnk'));
+  DeleteFile(ExpandConstant('{group}\Désinstaller Traducteur.lnk'));
+  DeleteFile(ExpandConstant('{autodesktop}\Traducteur.lnk'));
+  DeleteFile(ExpandConstant('{autostartup}\Traducteur.lnk'));
+  RemoveDir(ExpandConstant('{group}'));
+
+  if not PreserveConfiguration then
+    DeleteConfigurationFrom(ExistingInstallLocation);
+
+  DeleteUninstallRegistryEntries;
+  RemoveDir(ExistingInstallLocation);
+  Result := True;
+end;
+
 function RunExistingUninstaller(PreserveConfiguration: Boolean): Boolean;
 var
   UninstallerPath: String;
@@ -475,15 +617,13 @@ var
   StateWasPresent: Boolean;
 begin
   Result := False;
-  UninstallerPath := RemoveQuotes(ExistingUninstaller);
+  UninstallerPath := FindExistingUninstaller(
+    ExistingUninstaller,
+    ExistingInstallLocation
+  );
   if not FileExists(UninstallerPath) then
   begin
-    MsgBox(
-      'Le désinstalleur de la version existante est introuvable. Utilisez la page ' +
-        'Applications installées de Windows pour supprimer Traducteur.',
-      mbError,
-      MB_OK
-    );
+    Result := RemoveInstallationWithoutUninstaller(PreserveConfiguration);
     Exit;
   end;
 
