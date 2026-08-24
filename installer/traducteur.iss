@@ -502,8 +502,8 @@ begin
     Exit;
   end;
 
-  ApplicationPath := ExpandConstant('{app}\{#MyAppExeName}');
-  if not FileExists(ApplicationPath) and (ExistingInstallLocation <> '') then
+  ApplicationPath := '';
+  if ExistingInstallLocation <> '' then
     ApplicationPath := AddBackslash(ExistingInstallLocation) + '{#MyAppExeName}';
 
   if FileExists(ApplicationPath) then
@@ -591,11 +591,17 @@ begin
     DeleteFile(UninstallerBasePath + '.msg');
   end;
 
-  DeleteFile(ExpandConstant('{group}\Traducteur.lnk'));
-  DeleteFile(ExpandConstant('{group}\Désinstaller Traducteur.lnk'));
+  DeleteFile(
+    ExpandConstant('{userprograms}\Traducteur\Traducteur.lnk')
+  );
+  DeleteFile(
+    ExpandConstant(
+      '{userprograms}\Traducteur\Désinstaller Traducteur.lnk'
+    )
+  );
   DeleteFile(ExpandConstant('{autodesktop}\Traducteur.lnk'));
   DeleteFile(ExpandConstant('{autostartup}\Traducteur.lnk'));
-  RemoveDir(ExpandConstant('{group}'));
+  RemoveDir(ExpandConstant('{userprograms}\Traducteur'));
 
   if not PreserveConfiguration then
     DeleteConfigurationFrom(ExistingInstallLocation);
@@ -719,10 +725,7 @@ begin
     end;
   end
   else
-  begin
     DeleteConfigurationFrom(ExistingInstallLocation);
-    DeleteConfigurationFrom(ExpandConstant('{app}'));
-  end;
 
   Result := True;
 end;
