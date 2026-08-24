@@ -25,6 +25,8 @@
 - **Configuration simplifiée** : suppression du chemin imposé par variable d'environnement; l'application utilise le fichier créé à côté de l'exécutable ou le sélecteur lorsqu'aucune configuration n'est trouvée.
 - **Compatibilité historique retirée** : suppression des anciennes clés et variantes de configuration non utilisées, de la recherche dans le dossier courant et de deux fonctions de conversion Markdown devenues inaccessibles.
 - **Découverte vLLM explicitée** : la documentation et l'éditeur de configuration indiquent que `models_url` accepte aussi le format OpenAI/vLLM de `/v1/models`.
+- **Format d'API obligatoire** : `api_format` doit désormais être explicitement défini sur `ollama` ou `openai`; aucun fournisseur n'est choisi silencieusement.
+- **Artefacts inutilisés retirés** : suppression du fichier PyInstaller généré `traducteur.spec` et du guide alternatif orphelin consacré à PythonAnywhere.
 
 ### Corrections
 

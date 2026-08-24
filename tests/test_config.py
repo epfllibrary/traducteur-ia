@@ -65,6 +65,16 @@ class ConfigurationTests(unittest.TestCase):
             with self.assertRaises(translate.ConfigError):
                 translate.load_config(path, ask_if_missing=False)
 
+    def test_api_format_is_required(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._write_config(directory)
+            config = json.loads(path.read_text(encoding="utf-8"))
+            config.pop("api_format")
+            path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+
+            with self.assertRaises(translate.ConfigError):
+                translate.load_config(path, ask_if_missing=False)
+
     def test_model_discovery_is_not_derived_from_server_url(self):
         translate.CONFIG.clear()
         translate.CONFIG.update(
@@ -81,6 +91,7 @@ class ConfigurationTests(unittest.TestCase):
     def test_available_models_are_loaded_when_default_is_empty(self):
         translate.CONFIG.clear()
         translate.CONFIG.update(
+            api_format="ollama",
             server_url="https://inference.example/chat",
             models_url="https://inference.example/models",
             default_model="",

@@ -14,13 +14,13 @@
 REM Sur Windows, ouvrir PowerShell/Command Prompt
 pip install -r requirements.txt
 pip install pyinstaller
-pyinstaller --onefile --windowed --distpath bin --name traducteur translate.py
+pyinstaller --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
 ```
 
 ### Solution 2 : Utiliser Docker (Cross-compilation)
 ```bash
 # Depuis Linux/WSL
-docker run --rm -v $(pwd):/app -w /app python:3.9-windowsservercore pyinstaller --onefile --windowed --name traducteur translate.py
+docker run --rm -v $(pwd):/app -w /app python:3.9-windowsservercore pyinstaller --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
 ```
 
 ### Solution 3 : Machine virtuelle Windows
@@ -44,7 +44,7 @@ REM Installer PyInstaller
 pip install pyinstaller
 
 REM Créer l'exécutable
-pyinstaller --onefile --windowed --distpath bin --name traducteur translate.py
+pyinstaller --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
 ```
 
 ## Distribution

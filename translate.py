@@ -622,7 +622,12 @@ def _validate_config(user_config, path):
     server_url = user_config.get("server_url")
     default_model = user_config.get("default_model", "")
     models_url = user_config.get("models_url", "")
-    api_format = str(user_config.get("api_format", "ollama")).strip().lower()
+    api_format_value = user_config.get("api_format")
+    api_format = (
+        api_format_value.strip().lower()
+        if isinstance(api_format_value, str)
+        else ""
+    )
     invalid_fields = []
     if not isinstance(server_url, str) or not server_url.strip():
         invalid_fields.append("server_url")
@@ -630,7 +635,7 @@ def _validate_config(user_config, path):
         invalid_fields.append("default_model")
     if not isinstance(models_url, str):
         invalid_fields.append("models_url")
-    if api_format not in {"ollama", "openai"}:
+    if not isinstance(api_format_value, str) or api_format not in {"ollama", "openai"}:
         invalid_fields.append("api_format (ollama ou openai)")
     if invalid_fields:
         fields = ", ".join(invalid_fields)
@@ -786,7 +791,7 @@ def load_last_model(config):
     state_api_format = str(state.get("api_format", "")).strip().lower()
     if state_server_url and state_server_url != config.get("server_url", ""):
         return ""
-    if state_api_format and state_api_format != config.get("api_format", "ollama"):
+    if state_api_format and state_api_format != config["api_format"]:
         return ""
     model = state.get("last_model", "")
     return model.strip() if isinstance(model, str) else ""
@@ -814,7 +819,7 @@ def save_last_model(config, model):
                 {
                     "last_model": model,
                     "server_url": config.get("server_url", ""),
-                    "api_format": config.get("api_format", "ollama"),
+                    "api_format": config["api_format"],
                 },
                 temporary_file,
                 ensure_ascii=False,
@@ -950,7 +955,7 @@ def _openai_endpoint_kind(url):
 
 def _build_chat_payload(model, prompt, stream):
     """Construit une requête adaptée au protocole et à l'endpoint configurés."""
-    api_format = CONFIG.get("api_format", "ollama")
+    api_format = CONFIG["api_format"]
     payload = {"model": model, "stream": stream}
     if (
         api_format == "openai"
@@ -1045,7 +1050,7 @@ def _raise_for_status_with_detail(response):
         message = f"HTTP {response.status_code}"
         if detail:
             message += f" : {detail[:500]}"
-        if response.status_code >= 500 and CONFIG.get("api_format") == "openai":
+        if response.status_code >= 500 and CONFIG["api_format"] == "openai":
             endpoint_kind = _openai_endpoint_kind(CONFIG.get("server_url"))
             field_name = "prompt" if endpoint_kind == "completion" else "messages"
             message += (
@@ -1139,7 +1144,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
     def _show_config_status(self):
         """Affiche rapidement quelle configuration est utilisée."""
         label = f"Config: {Path(CONFIG['_config_source']).name}"
-        api_format = CONFIG.get("api_format", "ollama")
+        api_format = CONFIG["api_format"]
         self.set_status_text(
             self.status_label,
             f"{label} - API {api_format} - {CONFIG['server_url']}",
@@ -1249,8 +1254,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         selected_model = self._selected_model()
         same_backend = (
             CONFIG.get("server_url") == new_config.get("server_url")
-            and CONFIG.get("api_format", "ollama")
-            == new_config.get("api_format", "ollama")
+            and CONFIG["api_format"] == new_config["api_format"]
         )
         CONFIG.clear()
         CONFIG.update(new_config)
@@ -1680,7 +1684,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         _raise_for_status_with_detail(response)
         models = _parse_models_response(
             response.json(),
-            CONFIG.get("api_format", "ollama"),
+            CONFIG["api_format"],
         )
         if not models:
             raise RuntimeError(
@@ -2450,7 +2454,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         try:
             prompt = self._build_prompt(mode, source_lang, target_lang, prompt_text)
 
-            api_format = CONFIG.get("api_format", "ollama")
+            api_format = CONFIG["api_format"]
             payload = _build_chat_payload(model, prompt, stream=True)
             response = requests.post(
                 CONFIG["server_url"],
@@ -2614,7 +2618,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                 },
             )
 
-            api_format = CONFIG.get("api_format", "ollama")
+            api_format = CONFIG["api_format"]
             payload = _build_chat_payload(model, prompt, stream=False)
             response = requests.post(
                 CONFIG["server_url"],

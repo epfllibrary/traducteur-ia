@@ -44,7 +44,7 @@ if errorlevel 1 (
 
 REM Creer l'executable
 echo Creation de l'executable...
-pyinstaller --onefile --windowed --distpath bin --name traducteur translate.py
+pyinstaller --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
 if errorlevel 1 (
     echo ERREUR lors de la creation de l'executable
     pause

@@ -37,7 +37,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # Creer l'executable
 Write-Host "Creation de l'executable..." -ForegroundColor Blue
-pyinstaller --onefile --windowed --distpath bin --name traducteur translate.py
+pyinstaller --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERREUR lors de la creation de l'executable" -ForegroundColor Red

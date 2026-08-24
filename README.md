@@ -92,7 +92,7 @@ Si Traducteur est déjà installé, l'assistant le détecte dans le registre Win
 Utilisez un tag de taille explicite, comme `ministral-3:3b`, plutôt que `ministral-3:latest` : le tag `latest` peut désigner une variante plus lourde et évoluer ultérieurement. Consultez les fiches Ollama de [Ministral 3](https://ollama.com/library/ministral-3), [Llama 3.2](https://ollama.com/library/llama3.2) et [Qwen 3](https://ollama.com/library/qwen3) pour vérifier les variantes disponibles.
 
 ### Configuration de l'application
-La connexion à un modèle local ou distant se configure obligatoirement dans `.translator_config.json`. Les champs `server_url`, `languages` et les quatre prompts `traduire`, `réécrire`, `email` et `lookup` sont requis. `default_model` peut rester vide lorsque `models_url` est renseignée.
+La connexion à un modèle local ou distant se configure obligatoirement dans `.translator_config.json`. Les champs `api_format`, `server_url`, `languages` et les quatre prompts `traduire`, `réécrire`, `email` et `lookup` sont requis. `api_format` vaut `ollama` ou `openai`. `default_model` peut rester vide lorsque `models_url` est renseignée.
 
 Dans la configuration, `lookup` est le nom interne de la fonction **Alternatives**. Elle ne remplace pas automatiquement le texte : elle analyse le passage sélectionné dans son contexte et affiche des propositions parmi lesquelles l'utilisateur peut choisir.
 

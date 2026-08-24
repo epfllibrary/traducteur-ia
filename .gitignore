@@ -16,7 +16,7 @@ venv/
 build/
 dist/
 bin/*
-*.spec.bak
+*.spec
 
 # Generated binaries
 *.exe
