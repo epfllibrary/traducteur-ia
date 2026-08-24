@@ -14,7 +14,7 @@
 REM Sur Windows, ouvrir PowerShell/Command Prompt
 pip install -r requirements.txt
 pip install pyinstaller
-pyinstaller --onefile --windowed --name traducteur translate.py
+pyinstaller --onefile --windowed --distpath bin --name traducteur translate.py
 ```
 
 ### Solution 2 : Utiliser Docker (Cross-compilation)
@@ -44,14 +44,14 @@ REM Installer PyInstaller
 pip install pyinstaller
 
 REM Créer l'exécutable
-pyinstaller --onefile --windowed --name traducteur translate.py
+pyinstaller --onefile --windowed --distpath bin --name traducteur translate.py
 ```
 
 ## Distribution
-- Méthode recommandée : distribuer `dist/traducteur-setup.exe`; son assistant crée la configuration et peut proposer l'installation officielle d'Ollama
+- Distribuer uniquement `bin/traducteur-setup.exe`; son assistant crée la configuration et peut proposer l'installation officielle d'Ollama
 - Le profil EPFL préconfigure RCP avec `swiss-ai/Apertus-v1.5-8B`; l'utilisateur crée sa clé sur https://portal.rcp.epfl.ch/aiaas/keys
 - RCP est réservé aux membres de l'EPFL; les utilisateurs externes sélectionnent **Autre serveur** et configurent Ollama ou leur propre endpoint OpenAI/vLLM
-- Version portable : copier `dist/traducteur.exe` sur le système cible et placer obligatoirement `.translator_config.json` à côté
+- Ne pas publier séparément `bin/traducteur.exe` : cet artefact interne est intégré à l'installateur
 - Pour un usage local : installer Ollama séparément et télécharger le modèle configuré
 - Le raccourci de démarrage automatique est proposé par défaut et peut être désélectionné indépendamment du réglage d'affichage en arrière-plan
 - Une installation existante est détectée par le registre ou le dossier par défaut; l'assistant propose de réinstaller ou désinstaller, avec une case indépendante pour conserver la configuration

@@ -14,13 +14,13 @@ venv/
 
 # PyInstaller outputs
 build/
-dist/*
+dist/
+bin/*
 *.spec.bak
 
 # Generated binaries
 *.exe
-!dist/traducteur.exe
-!dist/traducteur-setup.exe
+!bin/traducteur-setup.exe
 
 # Local examples and obsolete archives
 examples/

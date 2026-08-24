@@ -6,7 +6,7 @@ L'application Python doit être compilée sur Windows pour créer un exécutable
 ## Solution simple
 1. **Machine Windows** : Utiliser un PC Windows (même temporaire)
 2. **Scripts fournis** : `scripts/build_windows.ps1` ou `scripts/build_windows.bat`
-3. **Résultat** : Exécutable `traducteur.exe` (~50 Mo)
+3. **Résultat** : Installateur `traducteur-setup.exe` prêt à être distribué
 
 ## Instructions pour l'IT
 
@@ -25,14 +25,14 @@ L'application Python doit être compilée sur Windows pour créer un exécutable
 ```
 
 ### Résultat attendu
-- Dossier `dist/` créé
-- Fichier `traducteur.exe`
+- Dossier `bin/` créé
+- Fichier interne `traducteur.exe`, puis installateur public `traducteur-setup.exe`
 - Taille : ~50 Mo
 - Standalone (pas besoin de Python)
 
 ### Déploiement
-- Copier l'exe sur les PCs utilisateurs
-- Déposer obligatoirement `.translator_config.json` à côté de l'exe, avec le serveur et soit `default_model`, soit `models_url`
+- Distribuer uniquement `bin/traducteur-setup.exe`; ne pas publier séparément l'exécutable interne
+- Laisser l'assistant créer le fichier de configuration avec le serveur et soit `default_model`, soit `models_url`
 - Pour un modèle local uniquement : installer Ollama et télécharger le modèle configuré
 - Pour un serveur distant Ollama ou OpenAI/vLLM protégé : renseigner la clé API dans la configuration
 

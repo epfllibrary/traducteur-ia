@@ -38,11 +38,11 @@ Attention : PythonAnywhere construit un binaire Linux, pas un `.exe` Windows. Ce
 # Dans PythonAnywhere (Linux)
 pip install --user pyinstaller
 pip install --user -r requirements.txt
-pyinstaller --onefile --windowed --name traducteur translate.py
+pyinstaller --onefile --windowed --distpath bin --name traducteur translate.py
 ```
 
 ### Téléchargement
-- Téléchargez `dist/traducteur` depuis PythonAnywhere pour un usage Linux uniquement
+- Téléchargez `bin/traducteur` depuis PythonAnywhere pour un usage Linux uniquement
 
 ## Vérification finale
 

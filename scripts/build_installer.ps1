@@ -4,9 +4,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
-$Executable = Join-Path $ProjectRoot "dist\traducteur.exe"
+$Executable = Join-Path $ProjectRoot "bin\traducteur.exe"
 $InstallerScript = Join-Path $ProjectRoot "installer\traducteur.iss"
-$Installer = Join-Path $ProjectRoot "dist\traducteur-setup.exe"
+$Installer = Join-Path $ProjectRoot "bin\traducteur-setup.exe"
 
 if (-not (Test-Path $Executable)) {
     throw "Executable introuvable : $Executable. Compilez d'abord traducteur.exe."

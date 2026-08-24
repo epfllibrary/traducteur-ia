@@ -40,17 +40,17 @@ Assurez-vous d'avoir ces fichiers dans le même dossier :
 - `.translator_config.example.json` pour préparer la configuration obligatoire
 
 ## Résultat attendu
-- Dossier `dist/` créé avec `traducteur.exe`
+- Dossier `bin/` créé avec `traducteur.exe`
 - Taille approximative : 50 Mo
 - Exécutable standalone (pas besoin de Python sur le système cible)
 
 ## Création de l'installateur guidé
 
-Après avoir créé `dist/traducteur.exe` :
+Après avoir créé `bin/traducteur.exe` :
 
 1. Installez [Inno Setup 6](https://jrsoftware.org/isinfo.php), ou exécutez `winget install --id JRSoftware.InnoSetup -e`.
 2. Lancez `.\scripts\build_installer.ps1` depuis PowerShell.
-3. Récupérez `dist\traducteur-setup.exe`.
+3. Récupérez `bin\traducteur-setup.exe`. C'est le seul fichier destiné à être publié.
 
 L'assistant demande d'abord de choisir entre l'environnement EPFL/RCP et un autre serveur. Pour un autre serveur, il propose ensuite Ollama ou OpenAI/vLLM, puis préremplit directement les URL exactes d'inférence et de modèles; elles restent modifiables. Une installation existante est recherchée dans le registre et dans le dossier par défaut; l'utilisateur choisit entre réinstaller et désinstaller, avec une case indépendante pour conserver la configuration et le dernier modèle utilisé. Une instance active peut être arrêtée automatiquement après confirmation. L'assistant ajoute au menu Démarrer un raccourci vers le désinstalleur, qui demande à son tour si les données utilisateur doivent être supprimées. Il sépare le réglage d'affichage en arrière-plan de la création du raccourci dans le dossier de démarrage Windows. Si Ollama est choisi et n'est pas détecté, il demande avant de télécharger et lancer l'installateur officiel. Le modèle lui-même doit ensuite être téléchargé séparément avec `ollama pull <modèle>`.
 
@@ -61,7 +61,7 @@ Le même `AppId` doit être conservé entre les versions : Inno Setup et la dét
 L'installateur et l'exécutable ne sont pas encore signés. Une alerte SmartScreen est donc possible jusqu'à l'ajout d'un certificat de signature de code.
 
 ## Utilisation de l'exécutable
-1. Copiez `.translator_config.example.json` en `dist/.translator_config.json` et adaptez le serveur et le modèle.
+1. Copiez `.translator_config.example.json` en `bin/.translator_config.json` et adaptez le serveur et le modèle.
 2. Pour un usage local, installez Ollama, téléchargez le modèle configuré et lancez `ollama serve`.
 3. Double-cliquez sur `traducteur.exe`.
 

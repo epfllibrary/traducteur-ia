@@ -37,7 +37,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # Creer l'executable
 Write-Host "Creation de l'executable..." -ForegroundColor Blue
-pyinstaller --onefile --windowed --name traducteur translate.py
+pyinstaller --onefile --windowed --distpath bin --name traducteur translate.py
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERREUR lors de la creation de l'executable" -ForegroundColor Red
@@ -45,14 +45,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Verifier le resultat
-$exePath = "dist/traducteur.exe"
+$exePath = "bin/traducteur.exe"
 if (Test-Path $exePath) {
     $size = (Get-Item $exePath).Length / 1MB
     Write-Host "OK Executable cree avec succes: $exePath" -ForegroundColor Green
     Write-Host "Taille: $([math]::Round($size, 1)) Mo" -ForegroundColor Cyan
     Write-Host "" -ForegroundColor White
     Write-Host "Pour utiliser l'application:" -ForegroundColor Green
-    Write-Host "1. Copiez .translator_config.example.json vers dist/.translator_config.json" -ForegroundColor White
+    Write-Host "1. Copiez .translator_config.example.json vers bin/.translator_config.json" -ForegroundColor White
     Write-Host "2. Configurez le serveur et le modele" -ForegroundColor White
     Write-Host "3. Executez $exePath" -ForegroundColor White
 } else {

@@ -18,6 +18,8 @@
 - **Désinstallation complète** : un raccourci est ajouté au menu Démarrer et le désinstalleur permet de conserver ou supprimer les données utilisateur.
 - **Erreurs exploitables** : les erreurs HTTP incluent le détail renvoyé par le serveur et le format OpenAI utilisé; une configuration invalide ne remplace pas la dernière configuration fonctionnelle.
 - **Documentation réorganisée** : les parcours EPFL/RCP, externe, Ollama et OpenAI/vLLM sont distingués et la création initiale de la clé RCP est documentée.
+- **Distribution simplifiée** : le dossier de sortie public devient `bin` et seul `traducteur-setup.exe` est versionné; l'exécutable intermédiaire reste local.
+- **Confidentialité clarifiée** : la documentation distingue le traitement local du traitement distant et précise que les contenus sensibles doivent être anonymisés avant leur envoi.
 
 ### Corrections
 

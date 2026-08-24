@@ -7,7 +7,7 @@
 #define AppMutexName "TraducteurAppMutex-8E28A203-8A35-4F78-BE6B-FD0718E146AD"
 #define SetupMutexName "TraducteurSetupMutex-8E28A203-8A35-4F78-BE6B-FD0718E146AD"
 #ifndef MyAppExeSource
-#define MyAppExeSource "..\dist\traducteur.exe"
+#define MyAppExeSource "..\bin\traducteur.exe"
 #endif
 
 [Setup]
@@ -25,7 +25,7 @@ PrivilegesRequired=lowest
 SetupMutex={#SetupMutexName}
 CloseApplications=yes
 RestartApplications=no
-OutputDir=..\dist
+OutputDir=..\bin
 OutputBaseFilename=traducteur-setup
 Compression=lzma2
 SolidCompression=yes

@@ -2,7 +2,7 @@
 
 Traducteur IA 1.1.0 est une application Windows conçue pour traduire et réécrire des textes, ainsi que pour rédiger des courriels, depuis une interface graphique ou directement à partir du presse-papiers. Elle permet de travailler rapidement tout en préservant autant que possible la structure du contenu, notamment les liens, les titres, le gras et l'italique.
 
-L'application s'appuie sur un grand modèle de langage (LLM) accessible par une API Ollama ou OpenAI/vLLM. Selon vos besoins, ce modèle peut être exécuté localement sur votre ordinateur ou hébergé sur un serveur distant.
+L'application s'appuie sur un grand modèle de langage (LLM) accessible par une API Ollama ou OpenAI/vLLM. Selon vos besoins, ce modèle peut être exécuté localement sur votre ordinateur ou hébergé sur un serveur distant. Le projet vise à offrir une interface de traduction pratique tout en laissant l'organisation ou l'utilisateur maîtriser l'emplacement et les conditions de traitement des données.
 
 ## 🖼️ Aperçu
 
@@ -17,11 +17,17 @@ Cette application fournit l'interface de traduction, mais n'embarque pas elle-m�
 
 Le serveur doit proposer une API Ollama ou une API compatible OpenAI. L'application ne télécharge et ne démarre pas elle-même le modèle. Pour une utilisation locale avec Ollama, consultez le [guide de démarrage officiel](https://docs.ollama.com/quickstart) et la [documentation de l'API Ollama](https://docs.ollama.com/api/introduction).
 
+### Confidentialité et maîtrise des données
+
+Avec un modèle local, les textes restent sur la machine qui exécute Ollama. Avec un modèle distant, ils sont transmis au serveur configuré : il convient donc d'utiliser un service de confiance et conforme aux règles de protection des données de votre organisation. Traducteur ne transmet les textes qu'à l'endpoint choisi et n'impose aucun fournisseur.
+
+L'application n'anonymise pas automatiquement le contenu. Les informations personnelles, confidentielles ou sensibles doivent être retirées ou anonymisées avant l'envoi lorsqu'elles ne peuvent pas être communiquées au service sélectionné. Cette distinction permet de présenter clairement ce que l'application maîtrise et ce qui dépend du modèle ou de l'infrastructure utilisés.
+
 ## 🚀 Installation sous Windows
 
 L'installateur fourni est la méthode recommandée. Python et les dépendances du projet ne sont pas nécessaires.
 
-1. Téléchargez [`dist/traducteur-setup.exe`](dist/traducteur-setup.exe) et lancez-le.
+1. Téléchargez [`bin/traducteur-setup.exe`](bin/traducteur-setup.exe) et lancez-le.
 2. Suivez l'assistant et adaptez les choix proposés à votre usage local ou distant.
 3. Lancez Traducteur depuis l'assistant, le menu Démarrer ou son raccourci facultatif sur le bureau.
 
@@ -203,7 +209,7 @@ PyInstaller crée des binaires spécifiques à l'architecture et au système d'e
 REM Sur Windows, ouvrir PowerShell/Command Prompt
 pip install -r requirements.txt
 pip install pyinstaller
-pyinstaller --onefile --windowed --name traducteur translate.py
+pyinstaller --onefile --windowed --distpath bin --name traducteur translate.py
 ```
 
 #### Scripts automatisés
@@ -216,13 +222,13 @@ pyinstaller --onefile --windowed --name traducteur translate.py
 REM Télécharger/cloner le projet sur Windows
 .\scripts\build_windows.ps1
 
-REM Après avoir créé dist\traducteur.exe et installé Inno Setup 6
+REM Après avoir créé bin\traducteur.exe et installé Inno Setup 6
 .\scripts\build_installer.ps1
 ```
 
 ### Distribution
-- **Installateur guidé inclus** : `dist/traducteur-setup.exe`, avec création de la configuration et proposition d'installation d'Ollama
-- **Exécutable intégré** : `dist/traducteur.exe` est l'artefact autonome utilisé pour construire l'installateur
+- **Livrable public** : seul `bin/traducteur-setup.exe` est publié; il guide la configuration et peut proposer l'installation d'Ollama
+- **Exécutable interne** : `bin/traducteur.exe` sert à construire l'installateur, y est intégré et reste ignoré par Git
 - **Python non requis** : l'installateur fournit l'application complète ; il n'est pas nécessaire d'installer Python, pip ou les dépendances du projet
 - **Dépendances externes** : Ollama doit être installé séparément uniquement si le modèle est exécuté localement
 - **Compatibilité** : L'exécutable est spécifique au système d'exploitation

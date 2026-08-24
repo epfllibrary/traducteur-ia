@@ -44,7 +44,7 @@ if errorlevel 1 (
 
 REM Creer l'executable
 echo Creation de l'executable...
-pyinstaller --onefile --windowed --name traducteur translate.py
+pyinstaller --onefile --windowed --distpath bin --name traducteur translate.py
 if errorlevel 1 (
     echo ERREUR lors de la creation de l'executable
     pause
@@ -52,16 +52,16 @@ if errorlevel 1 (
 )
 
 REM Verifier le resultat
-if exist "dist/traducteur.exe" (
-    for %%A in ("dist/traducteur.exe") do set size=%%~zA
+if exist "bin/traducteur.exe" (
+    for %%A in ("bin/traducteur.exe") do set size=%%~zA
     set /a size_mb=%size%/1048576
-    echo OK Executable cree avec succes: dist/traducteur.exe
+    echo OK Executable cree avec succes: bin/traducteur.exe
     echo Taille: %size_mb% Mo
     echo.
     echo Pour utiliser l'application:
-    echo 1. Copiez .translator_config.example.json vers dist/.translator_config.json
+    echo 1. Copiez .translator_config.example.json vers bin/.translator_config.json
     echo 2. Configurez le serveur et le modele
-    echo 3. Executez dist/traducteur.exe
+    echo 3. Executez bin/traducteur.exe
 ) else (
     echo ERREUR L'executable n'a pas ete cree
     pause
