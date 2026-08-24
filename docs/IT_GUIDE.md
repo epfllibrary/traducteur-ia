@@ -33,7 +33,7 @@ L'application Python doit être compilée sur Windows pour créer un exécutable
 ### Déploiement
 - Distribuer uniquement `bin/traducteur-setup.exe`; ne pas publier séparément l'exécutable interne
 - Laisser l'assistant créer le fichier de configuration avec le serveur et soit `default_model`, soit `models_url`
-- Pour un modèle local uniquement : installer Ollama et télécharger le modèle configuré
+- Pour un modèle local uniquement : laisser l'assistant installer et démarrer Ollama, puis télécharger automatiquement le modèle configuré; `ministral-3:3b` est proposé initialement
 - Pour un serveur distant Ollama ou OpenAI/vLLM protégé : renseigner la clé API dans la configuration
 
 ## Sécurité

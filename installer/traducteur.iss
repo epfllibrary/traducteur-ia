@@ -74,12 +74,14 @@ var
   ApiFormatPage: TInputOptionWizardPage;
   BackgroundPage: TInputOptionWizardPage;
   OllamaPage: TInputOptionWizardPage;
+  OllamaDownloadPage: TDownloadWizardPage;
   BackgroundPageInitialized: Boolean;
   ExistingInstallationFound: Boolean;
   ExistingUninstaller: String;
   ExistingInstallLocation: String;
   CleanReinstallCompleted: Boolean;
   UninstallOnlyCompleted: Boolean;
+  ConfigurationCreatedDuringInstall: Boolean;
   DeleteUserDataOnUninstall: Boolean;
   LastEnvironmentSelection: Integer;
   LastApiFormatSelection: Integer;
@@ -235,11 +237,63 @@ begin
     (ExistingInstallPage.SelectedValueIndex = 1);
 end;
 
+function OllamaExecutablePath: String;
+begin
+  Result := ExpandConstant('{localappdata}\Programs\Ollama\ollama.exe');
+  if not FileExists(Result) then
+    Result := FileSearch('ollama.exe', GetEnv('PATH'));
+end;
+
 function IsOllamaInstalled: Boolean;
 begin
+  Result := OllamaExecutablePath <> '';
+end;
+
+function URLStartsWithLocalHost(const URL: String; const Prefix: String): Boolean;
+var
+  NextCharacter: Char;
+begin
+  Result := False;
+  if Pos(Prefix, URL) <> 1 then
+    Exit;
+
+  if Length(URL) = Length(Prefix) then
+  begin
+    Result := True;
+    Exit;
+  end;
+
+  NextCharacter := URL[Length(Prefix) + 1];
+  Result := (NextCharacter = ':') or (NextCharacter = '/');
+end;
+
+function IsLocalOllamaEndpoint: Boolean;
+var
+  URL: String;
+begin
+  URL := Lowercase(Trim(ConfigPage.Values[0]));
   Result :=
-    FileExists(ExpandConstant('{localappdata}\Programs\Ollama\ollama.exe')) or
-    (FileSearch('ollama.exe', GetEnv('PATH')) <> '');
+    URLStartsWithLocalHost(URL, 'http://localhost') or
+    URLStartsWithLocalHost(URL, 'https://localhost') or
+    URLStartsWithLocalHost(URL, 'http://127.0.0.1') or
+    URLStartsWithLocalHost(URL, 'https://127.0.0.1') or
+    URLStartsWithLocalHost(URL, 'http://[::1]') or
+    URLStartsWithLocalHost(URL, 'https://[::1]');
+end;
+
+function LocalOllamaConfigurationSelected: Boolean;
+begin
+  Result :=
+    not WizardSilent and
+    (ApiFormatPage.SelectedValueIndex = 0) and
+    IsLocalOllamaEndpoint;
+end;
+
+function LocalOllamaSetupPageNeeded: Boolean;
+begin
+  Result :=
+    LocalOllamaConfigurationSelected and
+    (not FileExists(ConfigPath) or ReplaceConfigurationRequested);
 end;
 
 function JsonEscape(const Value: String): String;
@@ -256,6 +310,7 @@ begin
   ExistingInstallationFound := DetectExistingInstallation;
   CleanReinstallCompleted := False;
   UninstallOnlyCompleted := False;
+  ConfigurationCreatedDuringInstall := False;
   LastEnvironmentSelection := -1;
   LastApiFormatSelection := -1;
 
@@ -316,7 +371,7 @@ begin
   ConfigPage.Add('Clé API (facultative) :', True);
   ConfigPage.Values[0] := 'http://localhost:11434/api/chat';
   ConfigPage.Values[1] := 'http://localhost:11434/api/tags';
-  ConfigPage.Values[2] := '';
+  ConfigPage.Values[2] := 'ministral-3:3b';
   ConfigPage.Values[3] := '';
 
   BackgroundPage := CreateInputOptionPage(
@@ -337,14 +392,21 @@ begin
     BackgroundPage.ID,
     'Moteur local Ollama',
     'Ollama n''est nécessaire que pour utiliser un modèle sur cet ordinateur.',
-    'S''il n''est pas détecté, l''assistant peut télécharger puis lancer son ' +
-      'installateur officiel. Choisissez Non si vous utilisez un serveur distant.',
+    'L''assistant peut installer Ollama, démarrer son service local si nécessaire ' +
+      'et télécharger le modèle configuré.',
     True,
     False
   );
-  OllamaPage.Add('Oui, télécharger et lancer l''installateur officiel Ollama');
-  OllamaPage.Add('Non, j''utilise un serveur distant ou je l''installerai plus tard');
+  OllamaPage.Add('Oui, installer Ollama et préparer le modèle local');
+  OllamaPage.Add('Non, je l''installerai plus tard');
   OllamaPage.SelectedValueIndex := 0;
+
+  OllamaDownloadPage := CreateDownloadPage(
+    'Téléchargement d''Ollama',
+    'Téléchargement de l''installateur officiel en cours...',
+    nil
+  );
+  OllamaDownloadPage.ShowBaseNameInsteadOfUrl := True;
 end;
 
 procedure InitializeEndpointFields;
@@ -369,7 +431,7 @@ begin
   begin
     ConfigPage.Values[0] := 'http://localhost:11434/api/chat';
     ConfigPage.Values[1] := 'http://localhost:11434/api/tags';
-    ConfigPage.Values[2] := '';
+    ConfigPage.Values[2] := 'ministral-3:3b';
     ConfigPage.Values[3] := '';
     ConfigPage.PromptLabels[3].Caption := 'Clé API (facultative) :';
   end
@@ -408,29 +470,6 @@ begin
   end;
 end;
 
-function ConfigurationUsesOpenAI: Boolean;
-var
-  Lines: TArrayOfString;
-  Index: Integer;
-  CompactLine: String;
-begin
-  Result := False;
-  if not LoadStringsFromFile(ConfigPath, Lines) then
-    Exit;
-
-  for Index := 0 to GetArrayLength(Lines) - 1 do
-  begin
-    CompactLine := Lowercase(Lines[Index]);
-    StringChangeEx(CompactLine, ' ', '', True);
-    StringChangeEx(CompactLine, #9, '', True);
-    if Pos('"api_format":"openai"', CompactLine) > 0 then
-    begin
-      Result := True;
-      Exit;
-    end;
-  end;
-end;
-
 procedure CurPageChanged(CurPageID: Integer);
 begin
   if CurPageID = ConfigPage.ID then
@@ -462,9 +501,7 @@ begin
     ((PageID = ApiFormatPage.ID) and
       (EnvironmentPage.SelectedValueIndex = 0)) or
     ((PageID = OllamaPage.ID) and
-      (IsOllamaInstalled or (ApiFormatPage.SelectedValueIndex <> 0) or
-       (FileExists(ConfigPath) and not ReplaceConfigurationRequested and
-        ConfigurationUsesOpenAI)));
+      (not LocalOllamaSetupPageNeeded or IsOllamaInstalled));
 end;
 
 function WaitForTraducteurToClose(TimeoutMilliseconds: Integer): Boolean;
@@ -838,57 +875,168 @@ begin
       );
       Result := False;
     end;
+    if Result and (Pos('"', ConfigPage.Values[2]) > 0) then
+    begin
+      MsgBox(
+        'Le nom du modèle ne peut pas contenir de guillemet double.',
+        mbError,
+        MB_OK
+      );
+      Result := False;
+    end;
   end;
 end;
 
-procedure InstallOllamaIfRequested;
+function OllamaCommandSucceeds(const Parameters: String): Boolean;
 var
-  OllamaSetupPath: String;
+  ExecutablePath: String;
   ResultCode: Integer;
 begin
-  if WizardSilent or (ApiFormatPage.SelectedValueIndex <> 0) or
-    IsOllamaInstalled or (OllamaPage.SelectedValueIndex <> 0) then
+  ExecutablePath := OllamaExecutablePath;
+  Result := False;
+  if ExecutablePath = '' then
+    Exit;
+
+  if not Exec(
+    ExecutablePath,
+    Parameters,
+    ExtractFileDir(ExecutablePath),
+    SW_HIDE,
+    ewWaitUntilTerminated,
+    ResultCode
+  ) then
+    Exit;
+
+  Result := ResultCode = 0;
+end;
+
+function EnsureOllamaServer: Boolean;
+var
+  ExecutablePath: String;
+  ResultCode: Integer;
+  Attempts: Integer;
+begin
+  Result := False;
+  for Attempts := 1 to 10 do
+  begin
+    if OllamaCommandSucceeds('list') then
+    begin
+      Result := True;
+      Exit;
+    end;
+    Sleep(500);
+  end;
+
+  ExecutablePath := OllamaExecutablePath;
+  if ExecutablePath = '' then
+    Exit;
+
+  WizardForm.StatusLabel.Caption := 'Démarrage du service local Ollama...';
+  if not Exec(
+    ExecutablePath,
+    'serve',
+    ExtractFileDir(ExecutablePath),
+    SW_HIDE,
+    ewNoWait,
+    ResultCode
+  ) then
+    Exit;
+
+  for Attempts := 1 to 20 do
+  begin
+    Sleep(500);
+    if OllamaCommandSucceeds('list') then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+procedure PrepareLocalOllamaIfRequested;
+var
+  OllamaSetupPath: String;
+  OllamaPath: String;
+  ModelName: String;
+  ResultCode: Integer;
+begin
+  if not ConfigurationCreatedDuringInstall or
+    not LocalOllamaConfigurationSelected then
     Exit;
 
   OllamaSetupPath := ExpandConstant('{tmp}\OllamaSetup.exe');
   try
-    WizardForm.StatusLabel.Caption := 'Téléchargement de l''installateur officiel Ollama...';
-    DownloadTemporaryFile('{#OllamaSetupURL}', 'OllamaSetup.exe', '', nil);
-    WizardForm.StatusLabel.Caption := 'Installation d''Ollama...';
-    if not Exec(OllamaSetupPath, '', '', SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode) then
-      RaiseException('Impossible de lancer l''installateur Ollama.');
+    if not IsOllamaInstalled then
+    begin
+      if OllamaPage.SelectedValueIndex <> 0 then
+        Exit;
 
-    if ResultCode <> 0 then
-      MsgBox(
-        'L''installateur Ollama s''est terminé avec le code ' + IntToStr(ResultCode) + '.',
-        mbInformation,
-        MB_OK
-      )
-    else if Trim(ConfigPage.Values[2]) <> '' then
-    begin
-      MsgBox(
-        'Ollama est installé. Le modèle doit encore être téléchargé avant la première ' +
-          'traduction. Ouvrez PowerShell et exécutez :' + #13#10 + #13#10 +
-          'ollama pull ' + Trim(ConfigPage.Values[2]),
-        mbInformation,
-        MB_OK
-      );
-    end
-    else
-    begin
-      MsgBox(
-        'Ollama est installé. Installez au moins un modèle avec ollama pull, puis ' +
-          'sélectionnez-le dans Traducteur.',
-        mbInformation,
-        MB_OK
-      );
+      OllamaDownloadPage.Clear;
+      OllamaDownloadPage.Add('{#OllamaSetupURL}', 'OllamaSetup.exe', '');
+      OllamaDownloadPage.Show;
+      try
+        OllamaDownloadPage.Download;
+      finally
+        OllamaDownloadPage.Hide;
+      end;
+
+      WizardForm.StatusLabel.Caption := 'Installation d''Ollama...';
+      if not Exec(
+        OllamaSetupPath,
+        '',
+        '',
+        SW_SHOWNORMAL,
+        ewWaitUntilTerminated,
+        ResultCode
+      ) then
+        RaiseException('Impossible de lancer l''installateur Ollama.');
+
+      if ResultCode <> 0 then
+        RaiseException(
+          'L''installateur Ollama s''est terminé avec le code ' +
+            IntToStr(ResultCode) + '.'
+        );
     end;
+
+    if not IsOllamaInstalled then
+      RaiseException('Ollama reste introuvable après son installation.');
+
+    if not EnsureOllamaServer then
+      RaiseException('Le service local Ollama n''a pas pu être démarré.');
+
+    ModelName := Trim(ConfigPage.Values[2]);
+    if (ModelName <> '') and
+      not OllamaCommandSucceeds('show "' + ModelName + '"') then
+    begin
+      OllamaPath := OllamaExecutablePath;
+      WizardForm.StatusLabel.Caption :=
+        'Téléchargement du modèle ' + ModelName + '...';
+      if not Exec(
+        OllamaPath,
+        'pull "' + ModelName + '"',
+        ExtractFileDir(OllamaPath),
+        SW_SHOWNORMAL,
+        ewWaitUntilTerminated,
+        ResultCode
+      ) then
+        RaiseException('Impossible de lancer le téléchargement du modèle.');
+
+      if ResultCode <> 0 then
+        RaiseException(
+          'Le téléchargement du modèle s''est terminé avec le code ' +
+            IntToStr(ResultCode) + '.'
+        );
+    end;
+
+    WizardForm.StatusLabel.Caption := 'Ollama et son modèle local sont prêts.';
   except
     MsgBox(
-      'L''installation de Traducteur est terminée, mais Ollama n''a pas pu être installé.' +
+      'L''installation de Traducteur est terminée, mais la préparation d''Ollama ' +
+      'n''a pas pu être achevée.' +
       Chr(13) + Chr(10) + Chr(13) + Chr(10) + GetExceptionMessage +
       Chr(13) + Chr(10) + Chr(13) + Chr(10) +
-      'Vous pouvez le télécharger depuis https://ollama.com/download/windows.',
+      'Vous pouvez terminer manuellement avec Ollama depuis ' +
+      'https://ollama.com/download/windows.',
       mbError,
       MB_OK
     );
@@ -962,6 +1110,7 @@ begin
 
   if not SaveStringsToUTF8FileWithoutBOM(ConfigPath, Lines, False) then
     RaiseException('Impossible de créer .translator_config.json.');
+  ConfigurationCreatedDuringInstall := True;
 end;
 
 procedure UpdateBackgroundPreference;
@@ -1026,7 +1175,7 @@ begin
     if FileExists(ConfigPath) then
       UpdateBackgroundPreference;
     CreateConfiguration;
-    InstallOllamaIfRequested;
+    PrepareLocalOllamaIfRequested;
   end;
 end;
 

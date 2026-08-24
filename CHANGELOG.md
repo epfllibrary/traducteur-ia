@@ -10,6 +10,7 @@
 - **Profil EPFL (Service RCP)** : configuration automatique des endpoints RCP, modèle initial `swiss-ai/Apertus-v1.5-8B` et validation de la clé API créée sur le portail RCP.
 - **Parcours externe séparé** : les utilisateurs sans accès RCP choisissent Ollama ou leur propre serveur OpenAI/vLLM sans recevoir de paramètres EPFL.
 - **Configuration d'installation guidée** : les URL, le modèle et la clé API sont préparés selon l'environnement choisi, avec proposition d'installation d'Ollama uniquement lorsqu'il est sélectionné et absent.
+- **Préparation locale automatisée** : le profil Ollama propose `ministral-3:3b`, affiche la progression du téléchargement de l'installateur, démarre le service local si nécessaire et télécharge le modèle manquant avec la progression native d'Ollama.
 
 ### Améliorations
 

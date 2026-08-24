@@ -53,7 +53,7 @@ pyinstaller --onefile --windowed --distpath bin --specpath build --name traducte
 - Le profil EPFL préconfigure RCP avec `swiss-ai/Apertus-v1.5-8B`; l'utilisateur crée sa clé sur https://portal.rcp.epfl.ch/aiaas/keys
 - RCP est réservé aux membres de l'EPFL; les utilisateurs externes sélectionnent **Autre serveur** et configurent Ollama ou leur propre endpoint OpenAI/vLLM
 - Ne pas publier séparément `bin/traducteur.exe` : cet artefact interne est intégré à l'installateur
-- Pour un usage local : installer Ollama séparément et télécharger le modèle configuré
+- Pour un usage local guidé : l'assistant propose `ministral-3:3b`, installe Ollama si nécessaire, affiche les progressions et prépare automatiquement le modèle manquant
 - Le raccourci de démarrage automatique est proposé par défaut et peut être désélectionné indépendamment du réglage d'affichage en arrière-plan
 - Une installation existante est détectée par le registre ou le dossier par défaut; l'assistant propose de réinstaller ou désinstaller, avec une case indépendante pour conserver la configuration
 - Si l'application est en cours d'exécution, l'assistant propose de l'arrêter automatiquement
@@ -61,7 +61,7 @@ pyinstaller --onefile --windowed --distpath bin --specpath build --name traducte
 - Le désinstalleur demande si `.translator_config.json` et `.translator_state.json` doivent également être supprimés
 
 ## Utilisation
-1. Pour un usage local, lancer Ollama : `ollama serve`
+1. Pour un usage local manuel, lancer `ollama serve` seulement si Ollama n'est pas déjà actif
 2. Vérifier que `.translator_config.json` se trouve à côté de l'exécutable
 3. Exécuter `traducteur.exe`
 4. Importer des fichiers .txt, .docx, .pdf puis traduire

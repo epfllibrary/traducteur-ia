@@ -17,7 +17,7 @@ Cette application fournit l'interface de traduction, mais n'embarque pas elle-m�
 - **LLM local** : Ollama et le modèle fonctionnent sur votre ordinateur. Les textes restent sur la machine, mais la vitesse dépend directement du modèle et du matériel. Un petit modèle peut fonctionner uniquement avec le processeur, mais les réponses seront souvent plus lentes. Pour une utilisation fluide, un ordinateur récent avec suffisamment de mémoire et, idéalement, une carte graphique dédiée compatible est recommandé. Plus le modèle est volumineux, plus ses besoins en mémoire et en puissance augmentent.
 - **LLM distant** : le modèle fonctionne sur un autre serveur accessible par le réseau. Configurez alors son adresse et, si nécessaire, sa clé API.
 
-Le serveur doit proposer une API Ollama ou une API compatible OpenAI. L'application ne télécharge et ne démarre pas elle-même le modèle. Pour une utilisation locale avec Ollama, consultez le [guide de démarrage officiel](https://docs.ollama.com/quickstart) et la [documentation de l'API Ollama](https://docs.ollama.com/api/introduction).
+Le serveur doit proposer une API Ollama ou une API compatible OpenAI. Lors d'une installation locale guidée, l'assistant peut installer Ollama, démarrer son service et télécharger le modèle choisi. L'application n'embarque toutefois pas le modèle et ne gère pas le service après l'installation. Pour en savoir plus, consultez le [guide de démarrage officiel](https://docs.ollama.com/quickstart) et la [documentation de l'API Ollama](https://docs.ollama.com/api/introduction).
 
 ### Confidentialité et maîtrise des données
 
@@ -33,11 +33,11 @@ L'installateur fourni est la méthode recommandée. Python et les dépendances d
 2. Suivez l'assistant et adaptez les choix proposés à votre usage local ou distant.
 3. Lancez Traducteur depuis l'assistant, le menu Démarrer ou son raccourci facultatif sur le bureau.
 
-L'assistant se charge de créer le fichier de configuration de l'application (`.translator_config.json`). Il demande d'abord de choisir entre l'environnement EPFL/RCP et un autre serveur. Pour un autre serveur, il propose ensuite Ollama ou OpenAI/vLLM, puis affiche directement les URL exactes correspondantes. Ces URL restent modifiables pour les fournisseurs non standard. Il demande ensuite un éventuel modèle par défaut et la clé API, puis les options de démarrage. Si Ollama est sélectionné mais absent, il propose de télécharger et lancer son installateur officiel. Le modèle peut rester vide pour être choisi dans la liste découverte au premier lancement.
+L'assistant se charge de créer le fichier de configuration de l'application (`.translator_config.json`). Il demande d'abord de choisir entre l'environnement EPFL/RCP et un autre serveur. Pour un autre serveur, il propose ensuite Ollama ou OpenAI/vLLM, puis affiche directement les URL exactes correspondantes. Ces URL restent modifiables pour les fournisseurs non standard. Il demande ensuite un éventuel modèle par défaut et la clé API, puis les options de démarrage. Avec Ollama local, `ministral-3:3b` est proposé par défaut. L'assistant peut afficher la progression du téléchargement d'Ollama, l'installer, démarrer son service si nécessaire et télécharger le modèle manquant avec une progression détaillée visible.
 
 Pour les membres de l'EPFL, choisissez **EPFL (Service RCP)**. L'assistant configure automatiquement les endpoints RCP et propose `swiss-ai/Apertus-v1.5-8B` comme modèle par défaut. Lors de la première utilisation, créez une clé sur le [portail RCP (API Keys)](https://portal.rcp.epfl.ch/aiaas/keys), puis saisissez-la dans l'assistant. Le service RCP n'est pas accessible aux utilisateurs externes; ceux-ci doivent choisir **Autre serveur**, puis configurer Ollama ou leur propre serveur OpenAI/vLLM.
 
-> **Utilisation locale :** l'installation facultative d'Ollama ne télécharge pas automatiquement le modèle choisi, qui peut représenter plusieurs gigaoctets. Si le modèle configuré n'est pas encore présent, ouvrez PowerShell et exécutez par exemple `ollama pull ministral-3:3b`, ou remplacez ce nom par le modèle sélectionné dans l'assistant. Si les traductions locales sont lentes, cela provient généralement de la vitesse du modèle et du matériel utilisé, et non de l'interface Traducteur.
+> **Utilisation locale :** le téléchargement initial du modèle peut représenter plusieurs gigaoctets. Laissez l'assistant et la fenêtre de progression d'Ollama ouverts jusqu'à la fin de l'opération. Si les traductions locales sont lentes, cela provient généralement de la vitesse du modèle et du matériel utilisé, et non de l'interface Traducteur.
 
 Si Traducteur est déjà installé, l'assistant le détecte dans le registre Windows ou dans le dossier d'installation habituel. Il propose de réinstaller ou de désinstaller l'application, avec une case indépendante pour conserver `.translator_config.json` et `.translator_state.json`. Si l'application est lancée, l'assistant propose de l'arrêter automatiquement. Une ancienne version portable enregistrée dans un autre dossier ne peut pas toujours être localisée, mais son processus actif peut être arrêté après confirmation.
 
@@ -83,11 +83,15 @@ Si Traducteur est déjà installé, l'assistant le détecte dans le registre Win
 ## ⚙️ Configuration et utilisation
 
 ### Configuration locale avec Ollama
-1. Installez Ollama en suivant le [guide officiel](https://docs.ollama.com/quickstart).
-2. Téléchargez un modèle, par exemple : `ollama pull ministral-3:3b`
-3. Lancez le serveur: `ollama serve`
+L'installateur automatise la configuration locale : il propose `ministral-3:3b`, installe Ollama si nécessaire, démarre le service seulement s'il ne répond pas déjà et télécharge le modèle s'il est absent. La barre intégrée indique l'avancement du téléchargement de l'installateur; la fenêtre `ollama pull` détaille ensuite celui du modèle.
 
-`ministral-3:3b` n'est qu'un exemple de modèle multilingue utilisable localement; l'application ne l'impose pas. Choisissez un modèle adapté à votre matériel, à vos langues et à vos exigences de qualité, puis comparez quelques traductions représentatives avant de fixer `default_model`.
+Pour une installation manuelle ou un lancement depuis les sources :
+
+1. Installez Ollama en suivant le [guide officiel](https://docs.ollama.com/quickstart).
+2. Téléchargez un modèle, par exemple : `ollama pull ministral-3:3b`.
+3. Si Ollama n'est pas déjà actif, lancez `ollama serve`.
+
+`ministral-3:3b` est le choix initial proposé pour Ollama, mais il n'est pas imposé. Choisissez un modèle adapté à votre matériel, à vos langues et à vos exigences de qualité, puis comparez quelques traductions représentatives avant de fixer `default_model`.
 
 Utilisez un tag de taille explicite, comme `ministral-3:3b`, plutôt que `ministral-3:latest` : le tag `latest` peut désigner une variante plus lourde et évoluer ultérieurement. Consultez les fiches Ollama de [Ministral 3](https://ollama.com/library/ministral-3), [Llama 3.2](https://ollama.com/library/llama3.2) et [Qwen 3](https://ollama.com/library/qwen3) pour vérifier les variantes disponibles.
 

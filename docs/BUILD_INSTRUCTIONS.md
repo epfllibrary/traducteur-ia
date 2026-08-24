@@ -52,7 +52,7 @@ Après avoir créé `bin/traducteur.exe` :
 2. Lancez `.\scripts\build_installer.ps1` depuis PowerShell.
 3. Récupérez `bin\traducteur-setup.exe`. C'est le seul fichier destiné à être publié.
 
-L'assistant demande d'abord de choisir entre l'environnement EPFL/RCP et un autre serveur. Pour un autre serveur, il propose ensuite Ollama ou OpenAI/vLLM, puis préremplit directement les URL exactes d'inférence et de modèles; elles restent modifiables. Une installation existante est recherchée dans le registre et dans le dossier par défaut; l'utilisateur choisit entre réinstaller et désinstaller, avec une case indépendante pour conserver la configuration et le dernier modèle utilisé. Une instance active peut être arrêtée automatiquement après confirmation. L'assistant ajoute au menu Démarrer un raccourci vers le désinstalleur, qui demande à son tour si les données utilisateur doivent être supprimées. Il sépare le réglage d'affichage en arrière-plan de la création du raccourci dans le dossier de démarrage Windows. Si Ollama est choisi et n'est pas détecté, il demande avant de télécharger et lancer l'installateur officiel. Le modèle lui-même doit ensuite être téléchargé séparément avec `ollama pull <modèle>`.
+L'assistant demande d'abord de choisir entre l'environnement EPFL/RCP et un autre serveur. Pour un autre serveur, il propose ensuite Ollama ou OpenAI/vLLM, puis préremplit directement les URL exactes d'inférence et de modèles; elles restent modifiables. Une installation existante est recherchée dans le registre et dans le dossier par défaut; l'utilisateur choisit entre réinstaller et désinstaller, avec une case indépendante pour conserver la configuration et le dernier modèle utilisé. Une instance active peut être arrêtée automatiquement après confirmation. L'assistant ajoute au menu Démarrer un raccourci vers le désinstalleur, qui demande à son tour si les données utilisateur doivent être supprimées. Il sépare le réglage d'affichage en arrière-plan de la création du raccourci dans le dossier de démarrage Windows. Avec Ollama local, `ministral-3:3b` est proposé par défaut. Si Ollama est absent, l'assistant affiche la progression de son téléchargement avant de lancer l'installateur officiel. Il démarre ensuite le service s'il ne répond pas déjà et exécute `ollama pull` avec sa progression visible lorsque le modèle manque.
 
 Le profil **EPFL (Service RCP)** préconfigure `https://inference.rcp.epfl.ch/v1/chat/completions`, `https://inference.rcp.epfl.ch/v1/models` et le modèle `swiss-ai/Apertus-v1.5-8B`. Une clé doit être créée lors de la première utilisation sur [portal.rcp.epfl.ch/aiaas/keys](https://portal.rcp.epfl.ch/aiaas/keys). RCP étant réservé aux membres de l'EPFL, les utilisateurs externes doivent choisir **Autre serveur**.
 
@@ -62,7 +62,7 @@ L'installateur et l'exécutable ne sont pas encore signés. Une alerte SmartScre
 
 ## Utilisation de l'exécutable
 1. Copiez `.translator_config.example.json` en `bin/.translator_config.json` et adaptez le serveur et le modèle.
-2. Pour un usage local, installez Ollama, téléchargez le modèle configuré et lancez `ollama serve`.
+2. Pour un usage local manuel, installez Ollama, téléchargez le modèle configuré et lancez `ollama serve` uniquement si le service n'est pas déjà actif.
 3. Double-cliquez sur `traducteur.exe`.
 
 ## Configuration obligatoire
