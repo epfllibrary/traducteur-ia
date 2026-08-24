@@ -1,6 +1,6 @@
 @echo off
 pushd "%~dp0.."
-echo === Build Traducteur 1.0 pour Windows ===
+echo === Build Traducteur 1.1.0 pour Windows ===
 echo.
 
 REM Verifier Python

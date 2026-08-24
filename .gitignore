@@ -10,6 +10,7 @@ venv/
 
 # Local configuration
 .translator_config.json
+.translator_state.json
 
 # PyInstaller outputs
 build/

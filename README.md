@@ -1,21 +1,21 @@
-# Traducteur IA (1.0)
+# Traducteur IA (1.1.0)
 
-Traducteur IA 1.0 est une application Windows conçue pour traduire et réécrire des textes, ainsi que pour rédiger des courriels, depuis une interface graphique ou directement à partir du presse-papiers. Elle permet de travailler rapidement tout en préservant autant que possible la structure du contenu, notamment les liens, les titres, le gras et l'italique.
+Traducteur IA 1.1.0 est une application Windows conçue pour traduire et réécrire des textes, ainsi que pour rédiger des courriels, depuis une interface graphique ou directement à partir du presse-papiers. Elle permet de travailler rapidement tout en préservant autant que possible la structure du contenu, notamment les liens, les titres, le gras et l'italique.
 
-L'application s'appuie sur un grand modèle de langage (LLM) accessible par une API compatible Ollama. Selon vos besoins, ce modèle peut être exécuté localement sur votre ordinateur ou hébergé sur un serveur distant.
+L'application s'appuie sur un grand modèle de langage (LLM) accessible par une API Ollama ou OpenAI/vLLM. Selon vos besoins, ce modèle peut être exécuté localement sur votre ordinateur ou hébergé sur un serveur distant.
 
 ## 🖼️ Aperçu
 
-![Aperçu de l'interface de Traducteur IA 1.0](img/Exemple_interface.png)
+![Aperçu de l'interface de Traducteur IA 1.1.0](img/Exemple_interface.png)
 
 ## 🤖 Principe de fonctionnement
 
-Cette application fournit l'interface de traduction, mais n'embarque pas elle-même de grand modèle de langage (LLM). Elle envoie le texte au modèle défini dans `.translator_config.json` :
+Cette application fournit l'interface de traduction, mais n'embarque pas elle-même de grand modèle de langage (LLM). Elle envoie le texte au modèle défini dans le fichier de configuration de l'application (`.translator_config.json`) :
 
 - **LLM local** : Ollama et le modèle fonctionnent sur votre ordinateur. Les textes restent sur la machine, mais la vitesse dépend directement du modèle et du matériel. Un petit modèle peut fonctionner uniquement avec le processeur, mais les réponses seront souvent plus lentes. Pour une utilisation fluide, un ordinateur récent avec suffisamment de mémoire et, idéalement, une carte graphique dédiée compatible est recommandé. Plus le modèle est volumineux, plus ses besoins en mémoire et en puissance augmentent.
 - **LLM distant** : le modèle fonctionne sur un autre serveur accessible par le réseau. Configurez alors son adresse et, si nécessaire, sa clé API.
 
-Dans les deux cas, le serveur doit proposer une API compatible Ollama. L'application ne télécharge et ne démarre pas le modèle automatiquement. Pour installer Ollama, lancer un premier modèle ou comprendre son API, consultez le [guide de démarrage officiel](https://docs.ollama.com/quickstart) et la [documentation de l'API Ollama](https://docs.ollama.com/api/introduction).
+Le serveur doit proposer une API Ollama ou une API compatible OpenAI. L'application ne télécharge et ne démarre pas elle-même le modèle. Pour une utilisation locale avec Ollama, consultez le [guide de démarrage officiel](https://docs.ollama.com/quickstart) et la [documentation de l'API Ollama](https://docs.ollama.com/api/introduction).
 
 ## 🚀 Installation sous Windows
 
@@ -25,11 +25,13 @@ L'installateur fourni est la méthode recommandée. Python et les dépendances d
 2. Suivez l'assistant et adaptez les choix proposés à votre usage local ou distant.
 3. Lancez Traducteur depuis l'assistant, le menu Démarrer ou son raccourci facultatif sur le bureau.
 
-L'assistant se charge de créer `.translator_config.json`, de demander le serveur, le modèle et l'éventuelle clé API, puis de proposer l'installation d'Ollama et les options de démarrage. Les valeurs `localhost` et `ministral-3:3b` sont de simples choix par défaut et restent modifiables. Lors d'une mise à niveau ou d'une désinstallation, la configuration existante est conservée afin de ne pas perdre les réglages.
+L'assistant se charge de créer le fichier de configuration de l'application (`.translator_config.json`). Il demande d'abord de choisir entre l'environnement EPFL/RCP et un autre serveur. Pour un autre serveur, il propose ensuite Ollama ou OpenAI/vLLM, puis affiche directement les URL exactes correspondantes. Ces URL restent modifiables pour les fournisseurs non standard. Il demande ensuite un éventuel modèle par défaut et la clé API, puis les options de démarrage. Si Ollama est sélectionné mais absent, il propose de télécharger et lancer son installateur officiel. Le modèle peut rester vide pour être choisi dans la liste découverte au premier lancement.
+
+Pour les membres de l'EPFL, choisissez **EPFL (Service RCP)**. L'assistant configure automatiquement les endpoints RCP et propose `swiss-ai/Apertus-v1.5-8B` comme modèle par défaut. Lors de la première utilisation, créez une clé sur le [portail RCP (API Keys)](https://portal.rcp.epfl.ch/aiaas/keys), puis saisissez-la dans l'assistant. Le service RCP n'est pas accessible aux utilisateurs externes; ceux-ci doivent choisir **Autre serveur**, puis configurer Ollama ou leur propre serveur OpenAI/vLLM.
 
 > **Utilisation locale :** l'installation facultative d'Ollama ne télécharge pas automatiquement le modèle choisi, qui peut représenter plusieurs gigaoctets. Si le modèle configuré n'est pas encore présent, ouvrez PowerShell et exécutez par exemple `ollama pull ministral-3:3b`, ou remplacez ce nom par le modèle sélectionné dans l'assistant. Si les traductions locales sont lentes, cela provient généralement de la vitesse du modèle et du matériel utilisé, et non de l'interface Traducteur.
 
-Si Traducteur est déjà installé, l'assistant effectue automatiquement la mise à niveau dans le même dossier et conserve la configuration. Il demande de quitter l'application si elle est encore ouverte. Une ancienne version portable enregistrée ailleurs n'est pas supprimée automatiquement et peut être effacée manuellement après vérification.
+Si Traducteur est déjà installé, l'assistant le détecte dans le registre Windows ou dans le dossier d'installation habituel. Il propose de réinstaller ou de désinstaller l'application, avec une case indépendante pour conserver `.translator_config.json` et `.translator_state.json`. Si l'application est lancée, l'assistant propose de l'arrêter automatiquement. Une ancienne version portable enregistrée dans un autre dossier ne peut pas toujours être localisée, mais son processus actif peut être arrêté après confirmation.
 
 > **Avertissement Windows / SmartScreen :** cette version de `traducteur.exe` et de son installateur n'est pas encore signée numériquement. Windows ne peut donc pas vérifier son éditeur et peut afficher « Éditeur inconnu » ou « Windows a protégé votre ordinateur ». Si le fichier provient bien du dépôt officiel, cliquez sur **Informations complémentaires**, puis **Exécuter quand même**. Cette alerte signale l'absence de signature ; elle ne constitue pas à elle seule la détection d'un logiciel malveillant. Ne désactivez pas SmartScreen globalement. Une signature de code est prévue ultérieurement.
 
@@ -81,7 +83,7 @@ Si Traducteur est déjà installé, l'assistant effectue automatiquement la mise
 Utilisez un tag de taille explicite, comme `ministral-3:3b`, plutôt que `ministral-3:latest` : le tag `latest` peut désigner une variante plus lourde et évoluer ultérieurement. Consultez les fiches Ollama de [Ministral 3](https://ollama.com/library/ministral-3), [Llama 3.2](https://ollama.com/library/llama3.2) et [Qwen 3](https://ollama.com/library/qwen3) pour vérifier les variantes disponibles.
 
 ### Configuration de l'application
-La connexion à un modèle local ou distant se configure obligatoirement dans `.translator_config.json`. Les champs `server_url`, `default_model` (ou son ancien alias `model`), `languages` et les quatre prompts `traduire`, `réécrire`, `email` et `lookup` sont requis.
+La connexion à un modèle local ou distant se configure obligatoirement dans `.translator_config.json`. Les champs `server_url`, `languages` et les quatre prompts `traduire`, `réécrire`, `email` et `lookup` sont requis. `default_model` peut rester vide lorsque `models_url` est renseignée.
 
 L'application cherche automatiquement ce fichier dans cet ordre :
 - le chemin défini par la variable d'environnement `TRANSLATOR_CONFIG` ;
@@ -93,7 +95,9 @@ Si aucun fichier n'est trouvé, un sélecteur demande de choisir une configurati
 Exemple :
 ```json
 {
+  "api_format": "ollama",
   "server_url": "http://localhost:11434/api/chat",
+  "models_url": "http://localhost:11434/api/tags",
   "api_key": "",
   "api_key_header": "Authorization",
   "think": false,
@@ -118,9 +122,33 @@ Exemple :
 }
 ```
 
-`server_url` peut désigner un serveur local ou distant compatible avec l'API Ollama. Il accepte aussi l'URL de base du serveur, par exemple `http://localhost:11434`; l'application ajoutera `/api/chat`.
-La clé historique `model` reste acceptée, mais `default_model` est préférée pour 1.0.
-La liste des modèles est chargée dynamiquement depuis l'endpoint Ollama `/api/tags`. Si cet appel échoue, seul `default_model` est proposé; aucune clé `models` n'est nécessaire.
+`server_url` est l'URL exacte appelée pour une traduction ou une recherche d'alternatives. L'application ne lui ajoute aucun chemin : indiquez donc l'endpoint complet attendu par le serveur, qu'il soit servi par Ollama ou par une autre solution acceptant le même format de requête.
+`api_format` accepte `ollama` ou `openai`. Le mode `openai` prend en charge les serveurs vLLM compatibles Chat Completions, leur streaming SSE et la liste `/v1/models`.
+La clé historique `model` reste acceptée, mais `default_model` est désormais préférée. Un modèle par défaut n'est pas obligatoire si `models_url` est définie.
+`models_url` est facultative. Lorsqu'elle est définie, elle est appelée telle quelle pour charger une liste au format Ollama (`{"models": [{"name": "..."}]`). Si elle est absente, vide ou inaccessible, `default_model` sert de repli. Au moins l'une de ces deux valeurs doit être renseignée.
+Le dernier modèle réellement utilisé est mémorisé dans `.translator_state.json` et restauré au prochain lancement. `default_model` reste uniquement le choix initial ou de repli modifiable depuis **Fichier > Modifier la configuration...**.
+Le fichier actif est surveillé toutes les secondes. Une modification valide rafraîchit automatiquement les menus et les paramètres; une erreur JSON ou réseau est signalée et la dernière configuration valide reste active.
+
+Exemple pour le service d'inférence OpenAI/vLLM de l'EPFL :
+
+```json
+{
+  "api_format": "openai",
+  "server_url": "https://inference.rcp.epfl.ch/v1/chat/completions",
+  "models_url": "https://inference.rcp.epfl.ch/v1/models",
+  "default_model": "swiss-ai/Apertus-v1.5-8B",
+  "api_key": "VOTRE_CLE_API",
+  "api_key_header": "Authorization",
+  "think": false
+}
+```
+
+Ces champs remplacent les champs correspondants dans la configuration complète; `languages` et `prompts` doivent être conservés.
+
+Pour une API OpenAI/vLLM, l'application accepte les deux endpoints. Une URL se terminant par
+`/v1/chat/completions` envoie un tableau `messages`; une URL se terminant par
+`/v1/completions` envoie automatiquement le champ `prompt`. Le streaming et les réponses
+non streamées sont interprétés selon le format correspondant.
 Si `api_key` est renseignée, elle est envoyée avec chaque requête. Par défaut l'en-tête est `Authorization: Bearer <api_key>`. Pour un endpoint qui attend un autre en-tête, mettez par exemple `"api_key_header": "X-API-Key"`.
 `think` est désactivé par défaut car la traduction bénéficie surtout d'une réponse directe et rapide. Mettez `"think": true` seulement si vous voulez explicitement activer le raisonnement des modèles compatibles.
 `hide_window_on_start` permet de lancer l'application directement en arrière-plan. L'alias français `masquer_fenetre_au_lancement` est aussi accepté.
@@ -146,6 +174,7 @@ Lorsque du contenu rendu est copié depuis un navigateur ou une application comp
 - Double Ctrl+C réaffiche la fenêtre, récupère le presse-papier et lance la traduction automatiquement.
 - Ctrl+Shift+C conserve le même comportement de traduction automatique du presse-papier.
 - Le menu **Fichier > Quitter** ou **Quitter** depuis le tray ferme réellement l'application.
+- Le menu **Fichier > Modifier la configuration...** ouvre le JSON actif, le valide avant l'enregistrement et applique immédiatement les nouveaux réglages.
 
 ## 🏗️ Architecture
 
@@ -153,7 +182,7 @@ Lorsque du contenu rendu est copié depuis un navigateur ou une application comp
 - **Tkinter/CustomTkinter** : Interface graphique
 - **Threading** : Traduction asynchrone
 - **Queue** : Communication thread-safe
-- **Requests** : appels à une API HTTP compatible Ollama, locale ou distante
+- **Requests** : appels aux API HTTP Ollama et OpenAI/vLLM, locales ou distantes
 
 ### Structure du code
 - `TranslatorApp` : Classe principale gérant l'interface
@@ -198,7 +227,7 @@ REM Après avoir créé dist\traducteur.exe et installé Inno Setup 6
 - **Dépendances externes** : Ollama doit être installé séparément uniquement si le modèle est exécuté localement
 - **Compatibilité** : L'exécutable est spécifique au système d'exploitation
 
-L'installateur crée `.translator_config.json` avec les valeurs choisies dans l'assistant. Le fichier local n'est pas versionné afin d'éviter de publier des clés ou des réglages internes.
+L'installateur crée `.translator_config.json` avec les valeurs choisies dans l'assistant. Il installe également une entrée **Désinstaller Traducteur** dans le menu Démarrer. Le désinstalleur demande si la configuration et l'état utilisateur doivent aussi être supprimés. Le fichier local n'est pas versionné afin d'éviter de publier des clés ou des réglages internes.
 
 #### Alternatives si pas d'accès Windows
 - **Auto Py to Exe** : Interface graphique locale pour créer des exe sur Windows
@@ -247,7 +276,7 @@ Cette section concerne les personnes qui souhaitent modifier ou reconstruire l'a
 ### Prérequis de développement
 
 - **Python 3.8+**
-- **Un accès à une API compatible Ollama**, locale ou distante
+- **Un accès à une API Ollama ou compatible OpenAI**, locale ou distante
 - Pour une utilisation locale : **Ollama** installé avec le modèle de votre choix
 
 ### Installation des dépendances
@@ -276,7 +305,7 @@ La configuration `.translator_config.json` reste obligatoire et doit être plac�
 ### Structure du dépôt
 
 - `translate.py` : application principale actuelle.
-- `requirements.txt` : dépendances Python de la version 1.0.
+- `requirements.txt` : dépendances Python de la version 1.1.0.
 - `.translator_config.example.json` : modèle de configuration sans secret.
 - `img/` : captures d'écran utilisées dans la documentation.
 - `installer/` : définition de l'installateur Windows Inno Setup.

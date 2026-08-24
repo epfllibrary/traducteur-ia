@@ -5,7 +5,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 Set-Location $repoRoot
 
-Write-Host "=== Build Traducteur 1.0 pour Windows ===" -ForegroundColor Green
+Write-Host "=== Build Traducteur 1.1.0 pour Windows ===" -ForegroundColor Green
 
 # Verifier Python
 try {

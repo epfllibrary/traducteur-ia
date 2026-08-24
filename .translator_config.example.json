@@ -1,5 +1,7 @@
 {
+  "api_format": "ollama",
   "server_url": "http://localhost:11434/api/chat",
+  "models_url": "http://localhost:11434/api/tags",
   "api_key": "",
   "api_key_header": "Authorization",
   "think": false,

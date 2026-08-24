@@ -52,9 +52,11 @@ Après avoir créé `dist/traducteur.exe` :
 2. Lancez `.\scripts\build_installer.ps1` depuis PowerShell.
 3. Récupérez `dist\traducteur-setup.exe`.
 
-L'assistant propose des valeurs modifiables pour le serveur et le modèle, crée la configuration si elle n'existe pas et conserve celle-ci lors d'une mise à niveau ou d'une désinstallation. Il sépare le réglage d'affichage en arrière-plan de la création du raccourci dans le dossier de démarrage Windows. Si Ollama n'est pas détecté, il demande avant de télécharger et lancer l'installateur officiel. Le modèle lui-même doit ensuite être téléchargé séparément avec `ollama pull <modèle>`.
+L'assistant demande d'abord de choisir entre l'environnement EPFL/RCP et un autre serveur. Pour un autre serveur, il propose ensuite Ollama ou OpenAI/vLLM, puis préremplit directement les URL exactes d'inférence et de modèles; elles restent modifiables. Une installation existante est recherchée dans le registre et dans le dossier par défaut; l'utilisateur choisit entre réinstaller et désinstaller, avec une case indépendante pour conserver la configuration et le dernier modèle utilisé. Une instance active peut être arrêtée automatiquement après confirmation. L'assistant ajoute au menu Démarrer un raccourci vers le désinstalleur, qui demande à son tour si les données utilisateur doivent être supprimées. Il sépare le réglage d'affichage en arrière-plan de la création du raccourci dans le dossier de démarrage Windows. Si Ollama est choisi et n'est pas détecté, il demande avant de télécharger et lancer l'installateur officiel. Le modèle lui-même doit ensuite être téléchargé séparément avec `ollama pull <modèle>`.
 
-Le même `AppId` doit être conservé entre les versions : Inno Setup reconnaît ainsi l'installation existante, réutilise son dossier et met les fichiers à jour sans désinstallation préalable. Les mutex de l'application et du programme d'installation empêchent les exécutions concurrentes.
+Le profil **EPFL (Service RCP)** préconfigure `https://inference.rcp.epfl.ch/v1/chat/completions`, `https://inference.rcp.epfl.ch/v1/models` et le modèle `swiss-ai/Apertus-v1.5-8B`. Une clé doit être créée lors de la première utilisation sur [portal.rcp.epfl.ch/aiaas/keys](https://portal.rcp.epfl.ch/aiaas/keys). RCP étant réservé aux membres de l'EPFL, les utilisateurs externes doivent choisir **Autre serveur**.
+
+Le même `AppId` doit être conservé entre les versions : Inno Setup et la détection explicite reconnaissent ainsi l'installation existante. Les mutex empêchent plusieurs instances de l'application ou de l'installateur; l'installateur gère lui-même la fermeture de l'application.
 
 L'installateur et l'exécutable ne sont pas encore signés. Une alerte SmartScreen est donc possible jusqu'à l'ajout d'un certificat de signature de code.
 
@@ -64,5 +66,7 @@ L'installateur et l'exécutable ne sont pas encore signés. Une alerte SmartScre
 3. Double-cliquez sur `traducteur.exe`.
 
 ## Configuration obligatoire
-Le fichier `.translator_config.json` doit définir `server_url`, `default_model`, les langues et les quatre prompts, puis être placé à côté de l'exécutable. S'il est absent, l'application demande de sélectionner une configuration valide.
+Le fichier `.translator_config.json` doit définir `server_url`, les langues et les quatre prompts, puis être placé à côté de l'exécutable. S'il est absent, l'application demande de sélectionner une configuration valide.
+`server_url` doit contenir l'endpoint complet : l'application l'utilise sans ajouter `/api/chat`. `default_model` est facultatif si `models_url` est renseignée; au moins l'une de ces deux valeurs est nécessaire.
+Utilisez `"api_format": "openai"` pour un endpoint vLLM `/v1/chat/completions`, ou `"api_format": "ollama"` pour `/api/chat`.
 Si le serveur exige une clé, renseignez `api_key` dans `.translator_config.json`. Ne partagez pas ce fichier avec une vraie clé.

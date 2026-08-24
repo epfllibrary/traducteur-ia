@@ -21,7 +21,7 @@ Placez ces fichiers dans le même dossier sur Windows :
 
 ### Étape 3 : Récupérez l'exécutable
 - L'outil génère un exe Windows dans le dossier de sortie choisi
-- Copiez `.translator_config.example.json` à côté de l'exécutable sous le nom `.translator_config.json`, puis adaptez le serveur et le modèle
+- Copiez `.translator_config.example.json` à côté de l'exécutable sous le nom `.translator_config.json`, puis adaptez le serveur et soit le modèle par défaut, soit l'URL de découverte des modèles
 - Testez l'exécutable sur Windows
 
 ## Alternative : PythonAnywhere

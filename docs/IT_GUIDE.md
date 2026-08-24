@@ -32,9 +32,9 @@ L'application Python doit être compilée sur Windows pour créer un exécutable
 
 ### Déploiement
 - Copier l'exe sur les PCs utilisateurs
-- Déposer obligatoirement `.translator_config.json` à côté de l'exe, avec le serveur et le modèle à utiliser
+- Déposer obligatoirement `.translator_config.json` à côté de l'exe, avec le serveur et soit `default_model`, soit `models_url`
 - Pour un modèle local uniquement : installer Ollama et télécharger le modèle configuré
-- Pour un serveur distant protégé : renseigner la clé API dans la configuration
+- Pour un serveur distant Ollama ou OpenAI/vLLM protégé : renseigner la clé API dans la configuration
 
 ## Sécurité
 - L'exe est créé avec PyInstaller (outil standard)

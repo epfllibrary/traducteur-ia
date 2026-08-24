@@ -31,7 +31,7 @@ docker run --rm -v $(pwd):/app -w /app python:3.9-windowsservercore pyinstaller 
 ## Prérequis
 - Windows 10/11
 - Python 3.8+ installé
-- Un serveur compatible Ollama, local ou distant
+- Un serveur Ollama ou compatible OpenAI/vLLM, local ou distant
 
 ## Installation des dépendances
 ```cmd
@@ -49,11 +49,15 @@ pyinstaller --onefile --windowed --name traducteur translate.py
 
 ## Distribution
 - Méthode recommandée : distribuer `dist/traducteur-setup.exe`; son assistant crée la configuration et peut proposer l'installation officielle d'Ollama
+- Le profil EPFL préconfigure RCP avec `swiss-ai/Apertus-v1.5-8B`; l'utilisateur crée sa clé sur https://portal.rcp.epfl.ch/aiaas/keys
+- RCP est réservé aux membres de l'EPFL; les utilisateurs externes sélectionnent **Autre serveur** et configurent Ollama ou leur propre endpoint OpenAI/vLLM
 - Version portable : copier `dist/traducteur.exe` sur le système cible et placer obligatoirement `.translator_config.json` à côté
 - Pour un usage local : installer Ollama séparément et télécharger le modèle configuré
 - Le raccourci de démarrage automatique est proposé par défaut et peut être désélectionné indépendamment du réglage d'affichage en arrière-plan
-- Une installation existante utilisant le même `AppId` est mise à niveau sur place; aucune désinstallation préalable n'est nécessaire
-- Si l'application est en cours d'exécution, l'assistant demande de la quitter avant l'installation ou la désinstallation
+- Une installation existante est détectée par le registre ou le dossier par défaut; l'assistant propose de réinstaller ou désinstaller, avec une case indépendante pour conserver la configuration
+- Si l'application est en cours d'exécution, l'assistant propose de l'arrêter automatiquement
+- Le menu Démarrer contient une entrée **Désinstaller Traducteur**
+- Le désinstalleur demande si `.translator_config.json` et `.translator_state.json` doivent également être supprimés
 
 ## Utilisation
 1. Pour un usage local, lancer Ollama : `ollama serve`
@@ -64,7 +68,7 @@ pyinstaller --onefile --windowed --name traducteur translate.py
 ## Dépannage
 - **Erreur "application ne peut pas s'exécuter"** : L'exécutable a été créé sur le mauvais OS
 - Si l'exécutable ne se lance pas : Vérifier les droits d'exécution
-- Erreur de connexion : Vérifier `server_url` ; en local, vérifier qu'Ollama fonctionne (`ollama list`)
+- Erreur de connexion : vérifier que `server_url` contient l'endpoint d'inférence complet ; en local, vérifier qu'Ollama fonctionne (`ollama list`)
 - Fichiers non supportés : Installer python-docx et pdfplumber
 
 ## Scripts de build automatisés

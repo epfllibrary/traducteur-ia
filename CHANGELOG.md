@@ -1,6 +1,33 @@
 # Changelog - Traducteur
 
-## 1.0 (Courant)
+## 1.1.0 (2026-08-24)
+
+### Nouvelles fonctionnalités
+
+- **API OpenAI/vLLM** : prise en charge de Chat Completions et Completions, du streaming SSE, des réponses non streamées et de la découverte des modèles via `/v1/models`.
+- **Configuration modifiable et surveillée** : le menu `Fichier > Modifier la configuration...` permet d'éditer le JSON actif; les modifications externes valides rafraîchissent automatiquement l'interface sans redémarrage.
+- **Choix de modèle simplifié** : `default_model` devient facultatif lorsqu'une URL de découverte est définie, et le dernier modèle réellement utilisé est restauré au lancement suivant.
+- **Profil EPFL (Service RCP)** : configuration automatique des endpoints RCP, modèle initial `swiss-ai/Apertus-v1.5-8B` et validation de la clé API créée sur le portail RCP.
+- **Parcours externe séparé** : les utilisateurs sans accès RCP choisissent Ollama ou leur propre serveur OpenAI/vLLM sans recevoir de paramètres EPFL.
+- **Configuration d'installation guidée** : les URL, le modèle et la clé API sont préparés selon l'environnement choisi, avec proposition d'installation d'Ollama uniquement lorsqu'il est sélectionné et absent.
+
+### Améliorations
+
+- **Installateur plus lisible** : une installation existante propose simplement de réinstaller ou désinstaller l'application, avec une case indépendante pour conserver la configuration et le dernier modèle utilisé.
+- **Arrêt automatique** : l'installateur propose de fermer proprement une instance de Traducteur encore active avant de poursuivre.
+- **Désinstallation complète** : un raccourci est ajouté au menu Démarrer et le désinstalleur permet de conserver ou supprimer les données utilisateur.
+- **Erreurs exploitables** : les erreurs HTTP incluent le détail renvoyé par le serveur et le format OpenAI utilisé; une configuration invalide ne remplace pas la dernière configuration fonctionnelle.
+- **Documentation réorganisée** : les parcours EPFL/RCP, externe, Ollama et OpenAI/vLLM sont distingués et la création initiale de la clé RCP est documentée.
+
+### Corrections
+
+- **URL d'inférence exacte** : suppression de l'ajout automatique de `/api/chat`; `server_url` et `models_url` sont désormais utilisées exactement telles qu'elles sont configurées.
+- **Compatibilité des endpoints OpenAI** : le corps de requête et le parsing utilisent automatiquement `messages` pour `/chat/completions` et `prompt` pour `/completions`.
+- **Rafraîchissement des modèles** : la liste déroulante est mise à jour après une modification de configuration et ne conserve pas les modèles d'un ancien serveur.
+
+---
+
+## 1.0
 ### Nouvelles fonctionnalités
 - **Installateur Windows guidé** : Ajout d'un assistant par utilisateur qui propose des valeurs modifiables pour le serveur, le modèle et la clé API, puis crée `.translator_config.json` sans écraser une configuration existante.
 - **Accompagnement Ollama** : Lorsque Ollama n'est pas détecté, l'assistant demande avant de télécharger et lancer son installateur officiel; l'option peut être refusée pour un serveur distant.

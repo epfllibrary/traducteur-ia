@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Traducteur 1.0 - Interface moderne et optimisée
+Traducteur 1.1.0 - Interface moderne et optimisée
 """
 
 import json
@@ -8,6 +8,7 @@ import os
 import queue
 import re
 import sys
+import tempfile
 import threading
 import time
 import tkinter as tk
@@ -20,9 +21,11 @@ from tkinter import filedialog, messagebox, ttk
 import requests
 
 APP_NAME = "Traducteur"
-APP_VERSION = "1.0"
+APP_VERSION = "1.1.0"
 APP_MUTEX_NAME = "TraducteurAppMutex-8E28A203-8A35-4F78-BE6B-FD0718E146AD"
+APP_SHUTDOWN_EVENT_NAME = "Local\\TraducteurShutdownEvent-8E28A203-8A35-4F78-BE6B-FD0718E146AD"
 START_HIDDEN = any(argument.lower() in {"--hidden", "--startup"} for argument in sys.argv[1:])
+SHUTDOWN_REQUESTED = any(argument.lower() == "--shutdown" for argument in sys.argv[1:])
 _APP_MUTEX_HANDLE = None
 
 try:
@@ -88,6 +91,7 @@ PROMPT_KEY_ALIASES = {
 }
 REQUIRED_PROMPTS = ("translate", "rewrite", "email", "lookup")
 REQUIRED_LANGUAGES = ("auto", "fr", "en", "de", "it", "es", "pt")
+NO_MODEL_LABEL = "Aucun modèle disponible"
 PROMPT_VARIABLES = {
     "source_language": "",
     "target_language": "",
@@ -634,14 +638,6 @@ def _choose_config_file(error_message=None):
             root.destroy()
 
 
-def _normalize_server_url(server_url):
-    """Accepte une URL Ollama complète ou seulement l'URL de base du serveur."""
-    server_url = str(server_url or "").strip().rstrip("/")
-    if not server_url.endswith("/api/chat"):
-        server_url = f"{server_url}/api/chat"
-    return server_url
-
-
 def _as_bool(value):
     """Interprète proprement les booléens venant du JSON ou d'anciennes configs."""
     if isinstance(value, bool):
@@ -658,28 +654,32 @@ class PromptValues(dict):
         return "{" + key + "}"
 
 
-def _read_config(path):
-    """Lit et valide les paramètres obligatoires d'un fichier JSON."""
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            user_config = json.load(f)
-    except Exception as exc:
-        raise ConfigError(f"Impossible de lire la configuration {path} : {exc}") from exc
-
+def _validate_config(user_config, path):
+    """Valide et prépare un objet de configuration déjà décodé."""
     if not isinstance(user_config, dict):
         raise ConfigError(f"La configuration {path} doit contenir un objet JSON.")
 
     server_url = user_config.get("server_url")
-    default_model = user_config.get("default_model") or user_config.get("model")
+    default_model = user_config.get("default_model", user_config.get("model", ""))
+    models_url = user_config.get("models_url", "")
+    api_format = str(user_config.get("api_format", "ollama")).strip().lower()
     invalid_fields = []
     if not isinstance(server_url, str) or not server_url.strip():
         invalid_fields.append("server_url")
-    if not isinstance(default_model, str) or not default_model.strip():
+    if not isinstance(default_model, str):
         invalid_fields.append("default_model")
+    if not isinstance(models_url, str):
+        invalid_fields.append("models_url")
+    if api_format not in {"ollama", "openai"}:
+        invalid_fields.append("api_format (ollama ou openai)")
     if invalid_fields:
         fields = ", ".join(invalid_fields)
         raise ConfigError(
             f"Configuration {path} incomplète ou invalide : champ(s) obligatoire(s) : {fields}."
+        )
+    if not default_model.strip() and not models_url.strip():
+        raise ConfigError(
+            f"Configuration {path} invalide : renseignez default_model ou models_url."
         )
 
     user_prompts = user_config.get("prompts")
@@ -717,12 +717,25 @@ def _read_config(path):
     }
     config["server_url"] = server_url.strip()
     config["default_model"] = default_model.strip()
+    config["models_url"] = models_url.strip()
+    config["api_format"] = api_format
     config["prompts"] = prompts
     config["languages"] = languages
     config.pop("models", None)
     config["_config_source"] = str(path)
 
     return config
+
+
+def _read_config(path):
+    """Lit et valide les paramètres obligatoires d'un fichier JSON."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            user_config = json.load(f)
+    except Exception as exc:
+        raise ConfigError(f"Impossible de lire la configuration {path} : {exc}") from exc
+
+    return _validate_config(user_config, path)
 
 
 def load_config(config_path=None, ask_if_missing=True):
@@ -745,7 +758,6 @@ def load_config(config_path=None, ask_if_missing=True):
                 raise
             path = _choose_config_file(str(exc))
 
-    config["server_url"] = _normalize_server_url(config.get("server_url"))
     config["think"] = _as_bool(config.get("think", False))
     config["api_key"] = str(config.get("api_key", "")).strip()
     config["api_key_header"] = str(config.get("api_key_header", "Authorization")).strip() or "Authorization"
@@ -761,6 +773,111 @@ def load_config(config_path=None, ask_if_missing=True):
     config["model"] = default_model
 
     return config
+
+
+def save_config_text(config_text, config_path):
+    """Valide puis remplace atomiquement le fichier de configuration."""
+    path = Path(config_path)
+    try:
+        user_config = json.loads(config_text)
+    except json.JSONDecodeError as exc:
+        raise ConfigError(
+            f"JSON invalide à la ligne {exc.lineno}, colonne {exc.colno} : {exc.msg}"
+        ) from exc
+
+    _validate_config(user_config, path)
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f"{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+            temporary_file.write(config_text)
+            if not config_text.endswith("\n"):
+                temporary_file.write("\n")
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        os.replace(temporary_path, path)
+        temporary_path = None
+    except OSError as exc:
+        raise ConfigError(f"Impossible d'enregistrer la configuration {path} : {exc}") from exc
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink()
+            except OSError:
+                pass
+
+    return load_config(path, ask_if_missing=False)
+
+
+def _model_state_path(config):
+    """Place l'état utilisateur à côté de la configuration active."""
+    return Path(config["_config_source"]).with_name(".translator_state.json")
+
+
+def load_last_model(config):
+    """Charge le dernier modèle utilisé, sans rendre ce fichier obligatoire."""
+    try:
+        state = json.loads(_model_state_path(config).read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return ""
+    if not isinstance(state, dict):
+        return ""
+    state_server_url = str(state.get("server_url", "")).strip()
+    state_api_format = str(state.get("api_format", "")).strip().lower()
+    if state_server_url and state_server_url != config.get("server_url", ""):
+        return ""
+    if state_api_format and state_api_format != config.get("api_format", "ollama"):
+        return ""
+    model = state.get("last_model", "")
+    return model.strip() if isinstance(model, str) else ""
+
+
+def save_last_model(config, model):
+    """Mémorise le dernier modèle utilisé dans un petit fichier d'état local."""
+    model = str(model or "").strip()
+    if not model:
+        return
+
+    path = _model_state_path(config)
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f"{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+            json.dump(
+                {
+                    "last_model": model,
+                    "server_url": config.get("server_url", ""),
+                    "api_format": config.get("api_format", "ollama"),
+                },
+                temporary_file,
+                ensure_ascii=False,
+                indent=2,
+            )
+            temporary_file.write("\n")
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        os.replace(temporary_path, path)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink()
+            except OSError:
+                pass
 
 
 def _acquire_single_instance_mutex():
@@ -787,6 +904,44 @@ def _acquire_single_instance_mutex():
     return True
 
 
+def _signal_shutdown_event():
+    """Demande à l'instance active de se fermer proprement sous Windows."""
+    if os.name != "nt":
+        return False
+
+    event_modify_state = 0x0002
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenEventW.argtypes = (ctypes.c_uint32, ctypes.c_bool, ctypes.c_wchar_p)
+    kernel32.OpenEventW.restype = ctypes.c_void_p
+    kernel32.SetEvent.argtypes = (ctypes.c_void_p,)
+    kernel32.SetEvent.restype = ctypes.c_bool
+    kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
+
+    handle = kernel32.OpenEventW(event_modify_state, False, APP_SHUTDOWN_EVENT_NAME)
+    if not handle:
+        return False
+    try:
+        return bool(kernel32.SetEvent(handle))
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _create_shutdown_event():
+    """Crée l'événement nommé surveillé par l'instance principale."""
+    if os.name != "nt":
+        return None
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateEventW.argtypes = (
+        ctypes.c_void_p,
+        ctypes.c_bool,
+        ctypes.c_bool,
+        ctypes.c_wchar_p,
+    )
+    kernel32.CreateEventW.restype = ctypes.c_void_p
+    return kernel32.CreateEventW(None, True, False, APP_SHUTDOWN_EVENT_NAME)
+
+
 def _notify_already_running():
     """Informe l'utilisateur qu'une instance existe déjà."""
     if START_HIDDEN:
@@ -802,6 +957,10 @@ def _notify_already_running():
         )
     finally:
         root.destroy()
+
+
+if __name__ == "__main__" and SHUTDOWN_REQUESTED:
+    raise SystemExit(0 if _signal_shutdown_event() else 1)
 
 
 if __name__ == "__main__" and not _acquire_single_instance_mutex():
@@ -828,6 +987,121 @@ def _request_headers():
     return {header_name: api_key}
 
 
+def _openai_endpoint_kind(url):
+    """Distingue les endpoints OpenAI chat et completion depuis leur URL exacte."""
+    path = str(url or "").split("?", 1)[0].rstrip("/").lower()
+    if path.endswith("/completions") and not path.endswith("/chat/completions"):
+        return "completion"
+    return "chat"
+
+
+def _build_chat_payload(model, prompt, stream):
+    """Construit une requête adaptée au protocole et à l'endpoint configurés."""
+    api_format = CONFIG.get("api_format", "ollama")
+    payload = {"model": model, "stream": stream}
+    if (
+        api_format == "openai"
+        and _openai_endpoint_kind(CONFIG.get("server_url")) == "completion"
+    ):
+        payload["prompt"] = prompt
+    else:
+        payload["messages"] = [{"role": "user", "content": prompt}]
+
+    if api_format == "ollama":
+        payload["think"] = CONFIG.get("think", False)
+    return payload
+
+
+def _parse_models_response(data, api_format):
+    """Extrait les identifiants de modèles des formats Ollama et OpenAI."""
+    if not isinstance(data, dict):
+        return []
+    if api_format == "openai":
+        return [
+            item["id"]
+            for item in data.get("data", [])
+            if isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"].strip()
+        ]
+    return [
+        item["name"]
+        for item in data.get("models", [])
+        if isinstance(item, dict) and isinstance(item.get("name"), str) and item["name"].strip()
+    ]
+
+
+def _parse_stream_chunk(line, api_format):
+    """Extrait un fragment de texte d'une ligne NDJSON Ollama ou SSE OpenAI."""
+    if isinstance(line, bytes):
+        line = line.decode("utf-8")
+    line = str(line or "").strip()
+    if not line:
+        return ""
+
+    if api_format == "openai":
+        if line.startswith("data:"):
+            line = line[5:].strip()
+        if line == "[DONE]":
+            return ""
+
+    data = json.loads(line)
+    if api_format == "openai":
+        choices = data.get("choices", []) if isinstance(data, dict) else []
+        if not choices or not isinstance(choices[0], dict):
+            return ""
+        completion_text = choices[0].get("text")
+        if isinstance(completion_text, str):
+            return completion_text
+        delta = choices[0].get("delta", {})
+        return delta.get("content", "") if isinstance(delta, dict) else ""
+    message = data.get("message", {}) if isinstance(data, dict) else {}
+    return message.get("content", "") if isinstance(message, dict) else ""
+
+
+def _parse_chat_response(data, api_format):
+    """Extrait le texte d'une réponse de chat non streamée."""
+    if not isinstance(data, dict):
+        return ""
+    if api_format == "openai":
+        choices = data.get("choices", [])
+        if not choices or not isinstance(choices[0], dict):
+            return ""
+        completion_text = choices[0].get("text")
+        if isinstance(completion_text, str):
+            return completion_text
+        message = choices[0].get("message", {})
+    else:
+        message = data.get("message", {})
+    return message.get("content", "") if isinstance(message, dict) else ""
+
+
+def _raise_for_status_with_detail(response):
+    """Conserve le détail JSON du serveur dans les erreurs affichées."""
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        detail = ""
+        try:
+            error_data = response.json()
+            error_value = error_data.get("error", "") if isinstance(error_data, dict) else ""
+            if isinstance(error_value, dict):
+                detail = str(error_value.get("message", "") or error_value)
+            else:
+                detail = str(error_value)
+        except (ValueError, TypeError):
+            detail = str(getattr(response, "text", "") or "").strip()
+        message = f"HTTP {response.status_code}"
+        if detail:
+            message += f" : {detail[:500]}"
+        if response.status_code >= 500 and CONFIG.get("api_format") == "openai":
+            endpoint_kind = _openai_endpoint_kind(CONFIG.get("server_url"))
+            field_name = "prompt" if endpoint_kind == "completion" else "messages"
+            message += (
+                f" (requête OpenAI {endpoint_kind}, champ {field_name}; "
+                "erreur interne renvoyée par le serveur vLLM)"
+            )
+        raise RuntimeError(message) from exc
+
+
 class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -840,7 +1114,11 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         self.resizable(True, True)
 
         # État
+        self.last_model = load_last_model(CONFIG)
         self.models = self._get_models()
+        for configured_model in (CONFIG["default_model"], self.last_model):
+            if configured_model and configured_model not in self.models:
+                self.models.insert(0, configured_model)
         self.history = []
         self.is_translating = False
         self.word_count = 0
@@ -858,6 +1136,9 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         self._last_global_ctrl_c_time = 0.0
         self._last_clipboard_trigger_time = 0.0
         self.translation_thread = None
+        self._config_editor = None
+        self._config_file_signature = self._get_config_file_signature()
+        self._shutdown_event_handle = _create_shutdown_event()
         self._ui_thread_id = threading.get_ident()
         self._link_refresh_after_id = None
         self._link_tag_counter = 0
@@ -865,8 +1146,10 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
 
         # Variables
         self.mode = tk.StringVar(value=MODE_LABELS["translate"])
-        default_model = CONFIG["default_model"]
-        self.model_var = tk.StringVar(value=default_model if default_model in self.models else self.models[0])
+        initial_model = self.last_model or CONFIG["default_model"]
+        if not initial_model and self.models:
+            initial_model = self.models[0]
+        self.model_var = tk.StringVar(value=initial_model)
         self.source_lang = tk.StringVar(value="auto")
         self.target_lang = tk.StringVar(value="fr")
         self.target_lookup_selection = ""
@@ -876,7 +1159,9 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         self._update_action_button_label()
         self._setup_bindings()
         self._process_queue()
+        self._poll_shutdown_event()
         self._show_config_status()
+        self._watch_config_file()
         
         # La croix masque la fenêtre: l'app reste en veille pour le raccourci global
         self.protocol("WM_DELETE_WINDOW", self._hide_window)
@@ -901,13 +1186,256 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
     def _show_config_status(self):
         """Affiche rapidement quelle configuration est utilisée."""
         label = f"Config: {Path(CONFIG['_config_source']).name}"
-        self.set_status_text(self.status_label, f"{label} - {CONFIG['server_url']}")
+        api_format = CONFIG.get("api_format", "ollama")
+        self.set_status_text(
+            self.status_label,
+            f"{label} - API {api_format} - {CONFIG['server_url']}",
+        )
+
+    def edit_configuration(self):
+        """Ouvre un éditeur JSON pour la configuration actuellement chargée."""
+        if self._config_editor is not None and self._config_editor.winfo_exists():
+            self._config_editor.deiconify()
+            self._config_editor.lift()
+            self._config_editor.focus_force()
+            return
+
+        config_path = Path(CONFIG["_config_source"])
+        try:
+            config_text = config_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            messagebox.showerror(
+                "Configuration",
+                f"Impossible de lire {config_path} :\n{exc}",
+                parent=self,
+            )
+            return
+
+        popup = tk.Toplevel(self)
+        self._config_editor = popup
+        popup.title("Modifier la configuration")
+        popup.geometry("820x650")
+        popup.minsize(620, 420)
+        popup.transient(self)
+
+        container = ttk.Frame(popup, padding=12)
+        container.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(
+            container,
+            text=(
+                f"Fichier : {config_path}\n"
+                "server_url est l'URL d'inférence exacte. models_url est facultative. "
+                "api_format accepte ollama ou openai."
+            ),
+            wraplength=780,
+        ).pack(anchor=tk.W, pady=(0, 8))
+
+        editor_frame = ttk.Frame(container)
+        editor_frame.pack(fill=tk.BOTH, expand=True)
+        editor = tk.Text(editor_frame, wrap=tk.NONE, undo=True, font=("Consolas", 10))
+        vertical_scrollbar = ttk.Scrollbar(editor_frame, orient=tk.VERTICAL, command=editor.yview)
+        horizontal_scrollbar = ttk.Scrollbar(
+            editor_frame,
+            orient=tk.HORIZONTAL,
+            command=editor.xview,
+        )
+        editor.configure(
+            yscrollcommand=vertical_scrollbar.set,
+            xscrollcommand=horizontal_scrollbar.set,
+        )
+        editor.grid(row=0, column=0, sticky="nsew")
+        vertical_scrollbar.grid(row=0, column=1, sticky="ns")
+        horizontal_scrollbar.grid(row=1, column=0, sticky="ew")
+        editor_frame.rowconfigure(0, weight=1)
+        editor_frame.columnconfigure(0, weight=1)
+        editor.insert("1.0", config_text)
+
+        status_var = tk.StringVar(value="")
+        ttk.Label(container, textvariable=status_var, foreground="#b42318").pack(
+            anchor=tk.W,
+            pady=(8, 0),
+        )
+
+        button_frame = ttk.Frame(container)
+        button_frame.pack(fill=tk.X, pady=(8, 0))
+
+        def close_editor():
+            self._config_editor = None
+            popup.destroy()
+
+        def save_editor():
+            try:
+                new_config = save_config_text(
+                    editor.get("1.0", "end-1c"),
+                    config_path,
+                )
+            except ConfigError as exc:
+                status_var.set(str(exc))
+                return
+            self._apply_runtime_config(new_config, notify_model_errors=True)
+            close_editor()
+            messagebox.showinfo(
+                "Configuration",
+                "La configuration a été enregistrée et appliquée.",
+                parent=self,
+            )
+
+        ttk.Button(button_frame, text="Annuler", command=close_editor).pack(side=tk.RIGHT)
+        ttk.Button(button_frame, text="Enregistrer", command=save_editor).pack(
+            side=tk.RIGHT,
+            padx=(0, 8),
+        )
+        popup.protocol("WM_DELETE_WINDOW", close_editor)
+        popup.bind("<Control-s>", lambda event: save_editor())
+        popup.bind("<Escape>", lambda event: close_editor())
+        editor.focus_set()
+
+    def _apply_runtime_config(self, new_config, notify_model_errors=False):
+        """Applique une configuration validée sans redémarrer l'application."""
+        selected_model = self._selected_model()
+        same_backend = (
+            CONFIG.get("server_url") == new_config.get("server_url")
+            and CONFIG.get("api_format", "ollama")
+            == new_config.get("api_format", "ollama")
+        )
+        CONFIG.clear()
+        CONFIG.update(new_config)
+        self._config_file_signature = self._get_config_file_signature()
+
+        languages = list(CONFIG["languages"])
+        target_languages = [code for code in languages if code != "auto"]
+        self.source_language_selector.configure(values=languages)
+        self.target_language_selector.configure(values=target_languages)
+        if self.source_lang.get() not in languages:
+            self.source_lang.set("auto")
+        if self.target_lang.get() not in target_languages:
+            self.target_lang.set("fr" if "fr" in target_languages else target_languages[0])
+
+        self.last_model = load_last_model(CONFIG) or (selected_model if same_backend else "")
+        self._set_available_models([])
+        self._show_config_status()
+        if str(CONFIG.get("models_url", "")).strip():
+            threading.Thread(
+                target=self._reload_models,
+                args=(notify_model_errors,),
+                daemon=True,
+            ).start()
+
+    def _reload_models(self, notify_errors=False):
+        """Recharge la liste facultative des modèles sans bloquer l'interface."""
+        try:
+            models = self._fetch_models()
+        except Exception as exc:
+            models = [CONFIG["default_model"]] if CONFIG["default_model"] else []
+            if notify_errors:
+                self.output_queue.put(
+                    ("call", (self._show_model_reload_error, (str(exc),)))
+                )
+        self.output_queue.put(("call", (self._set_available_models, (models,))))
+
+    def _show_model_reload_error(self, error_message):
+        """Signale un échec de rafraîchissement tout en gardant un repli utilisable."""
+        message = f"Impossible de charger les modèles : {error_message}"
+        self.set_status_text(self.status_label, message)
+        messagebox.showerror("Liste des modèles", message, parent=self)
+
+    def _set_available_models(self, models):
+        """Met à jour le sélecteur de modèle dans les deux interfaces possibles."""
+        default_model = CONFIG["default_model"]
+        unique_models = list(
+            dict.fromkeys(str(model).strip() for model in models if str(model).strip())
+        )
+        fallback_models = (default_model,) if unique_models else (self.last_model, default_model)
+        for configured_model in fallback_models:
+            if configured_model and configured_model not in unique_models:
+                unique_models.insert(0, configured_model)
+        self.models = unique_models
+        selector_values = self.models or [NO_MODEL_LABEL]
+        self.model_selector.configure(values=selector_values)
+        if self._selected_model() not in self.models:
+            preferred_model = next(
+                (
+                    candidate
+                    for candidate in (self.last_model, default_model)
+                    if candidate in self.models
+                ),
+                self.models[0] if self.models else "",
+            )
+            self.model_var.set(preferred_model)
+
+    def _get_config_file_signature(self):
+        """Retourne une signature légère du fichier de configuration actif."""
+        try:
+            stat = Path(CONFIG["_config_source"]).stat()
+        except OSError:
+            return None
+        return stat.st_mtime_ns, stat.st_size
+
+    def _watch_config_file(self):
+        """Recharge automatiquement une configuration modifiée hors de l'application."""
+        if not self.running:
+            return
+        signature = self._get_config_file_signature()
+        if signature != self._config_file_signature:
+            self._config_file_signature = signature
+            config_path = Path(CONFIG["_config_source"])
+            if signature is None:
+                messagebox.showerror(
+                    "Configuration introuvable",
+                    f"Le fichier {config_path} n'est plus accessible. "
+                    "La configuration précédente reste active.",
+                    parent=self,
+                )
+            else:
+                try:
+                    new_config = load_config(config_path, ask_if_missing=False)
+                except ConfigError as exc:
+                    messagebox.showerror(
+                        "Configuration non rechargée",
+                        f"{exc}\n\nLa configuration précédente reste active.",
+                        parent=self,
+                    )
+                else:
+                    self._apply_runtime_config(new_config, notify_model_errors=True)
+                    self.set_status_text(
+                        self.status_label,
+                        f"Configuration rechargée : {config_path.name}",
+                    )
+        self.after(1000, self._watch_config_file)
+
+    def _selected_model(self):
+        """Retourne uniquement un vrai nom de modèle sélectionné."""
+        model = self.model_var.get().strip()
+        return "" if model == NO_MODEL_LABEL else model
+
+    def _remember_last_model(self, model):
+        """Mémorise le modèle au moment où il est réellement utilisé."""
+        if not model or model == self.last_model:
+            return
+        try:
+            save_last_model(CONFIG, model)
+        except OSError as exc:
+            print(f"Impossible de mémoriser le dernier modèle : {exc}")
+            return
+        self.last_model = model
 
     def _hide_window(self):
         """Masquer la fenêtre sans quitter l'application."""
         if self._is_closing:
             return
         self.withdraw()
+
+    def _poll_shutdown_event(self):
+        """Ferme proprement l'application lorsqu'un installateur le demande."""
+        if not self.running or not self._shutdown_event_handle or os.name != "nt":
+            return
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.WaitForSingleObject.argtypes = (ctypes.c_void_p, ctypes.c_uint32)
+        kernel32.WaitForSingleObject.restype = ctypes.c_uint32
+        if kernel32.WaitForSingleObject(self._shutdown_event_handle, 0) == 0:
+            self._on_closing()
+            return
+        self.after(250, self._poll_shutdown_event)
 
     def _on_closing(self):
         """Quitter l'application proprement"""
@@ -916,6 +1444,15 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         self._is_closing = True
         self.running = False
         self.stop_event.set()
+
+        if self._shutdown_event_handle and os.name == "nt":
+            try:
+                ctypes.WinDLL("kernel32", use_last_error=True).CloseHandle(
+                    self._shutdown_event_handle
+                )
+            except Exception:
+                pass
+            self._shutdown_event_handle = None
 
         # Arrêter le listener pynput: sinon son thread peut garder le processus vivant
         if self.hotkey_listener:
@@ -1172,18 +1709,30 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
     def _get_models(self):
         """Récupère les modèles disponibles"""
         try:
-            response = requests.get(
-                f"{CONFIG['server_url'].replace('/api/chat', '/api/tags')}",
-                headers=_request_headers(),
-                timeout=10,
-            )
-            response.raise_for_status()
-            server_models = [m["name"] for m in response.json().get("models", [])]
-            if server_models:
-                return server_models
+            return self._fetch_models()
         except Exception:
-            pass
-        return [CONFIG["default_model"]]
+            return [CONFIG["default_model"]] if CONFIG["default_model"] else []
+
+    def _fetch_models(self):
+        """Charge la liste distante ou lève une erreur détaillée."""
+        models_url = str(CONFIG.get("models_url", "")).strip()
+        if not models_url:
+            return [CONFIG["default_model"]] if CONFIG["default_model"] else []
+        response = requests.get(
+            models_url,
+            headers=_request_headers(),
+            timeout=10,
+        )
+        _raise_for_status_with_detail(response)
+        models = _parse_models_response(
+            response.json(),
+            CONFIG.get("api_format", "ollama"),
+        )
+        if not models:
+            raise RuntimeError(
+                "le serveur a répondu, mais aucun modèle compatible n'a été trouvé"
+            )
+        return models
 
     def _setup_ui(self):
         """Configure l'interface"""
@@ -1201,6 +1750,11 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         menubar.add_cascade(label="Fichier", menu=file_menu)
         file_menu.add_command(label="Importer", command=self.import_file, accelerator="Ctrl+O")
         file_menu.add_command(label="Exporter", command=self.export_translation, accelerator="Ctrl+S")
+        file_menu.add_command(
+            label="Modifier la configuration...",
+            command=self.edit_configuration,
+            accelerator="Ctrl+,",
+        )
         file_menu.add_separator()
         self.history_menu = tk.Menu(file_menu, tearoff=0)
         file_menu.add_cascade(label="Historique", menu=self.history_menu)
@@ -1225,26 +1779,35 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                          dropdown_font=ctk.CTkFont(size=12)).pack(side=tk.LEFT, padx=(0, 12))
 
         ctk.CTkLabel(toolbar, text="Modèle:", font=ctk.CTkFont(size=12)).pack(side=tk.LEFT, padx=(0, 3))
-        ctk.CTkOptionMenu(toolbar, variable=self.model_var, values=self.models,
-                         width=140, height=32, font=ctk.CTkFont(size=12),
-                         fg_color="#f8f9fa", text_color="#495057",
-                         button_color="#e9ecef", button_hover_color="#dee2e6",
-                         dropdown_font=ctk.CTkFont(size=12)).pack(side=tk.LEFT, padx=(0, 15))
+        self.model_selector = ctk.CTkOptionMenu(
+            toolbar, variable=self.model_var, values=self.models or [NO_MODEL_LABEL],
+            width=140, height=32, font=ctk.CTkFont(size=12),
+            fg_color="#f8f9fa", text_color="#495057",
+            button_color="#e9ecef", button_hover_color="#dee2e6",
+            dropdown_font=ctk.CTkFont(size=12),
+        )
+        self.model_selector.pack(side=tk.LEFT, padx=(0, 15))
 
         ctk.CTkLabel(toolbar, text="De:", font=ctk.CTkFont(size=12)).pack(side=tk.LEFT, padx=(0, 3))
-        ctk.CTkOptionMenu(toolbar, variable=self.source_lang, values=list(CONFIG["languages"]),
-                         width=85, height=32, font=ctk.CTkFont(size=12),
-                         fg_color="#f8f9fa", text_color="#495057",
-                         button_color="#e9ecef", button_hover_color="#dee2e6",
-                         dropdown_font=ctk.CTkFont(size=12)).pack(side=tk.LEFT, padx=(0, 8))
+        self.source_language_selector = ctk.CTkOptionMenu(
+            toolbar, variable=self.source_lang, values=list(CONFIG["languages"]),
+            width=85, height=32, font=ctk.CTkFont(size=12),
+            fg_color="#f8f9fa", text_color="#495057",
+            button_color="#e9ecef", button_hover_color="#dee2e6",
+            dropdown_font=ctk.CTkFont(size=12),
+        )
+        self.source_language_selector.pack(side=tk.LEFT, padx=(0, 8))
 
         ctk.CTkLabel(toolbar, text="Vers:", font=ctk.CTkFont(size=12)).pack(side=tk.LEFT, padx=(0, 3))
-        ctk.CTkOptionMenu(toolbar, variable=self.target_lang,
-                         values=[code for code in CONFIG["languages"] if code != "auto"],
-                         width=85, height=32, font=ctk.CTkFont(size=12),
-                         fg_color="#f8f9fa", text_color="#495057",
-                         button_color="#e9ecef", button_hover_color="#dee2e6",
-                         dropdown_font=ctk.CTkFont(size=12)).pack(side=tk.LEFT, padx=(0, 8))
+        self.target_language_selector = ctk.CTkOptionMenu(
+            toolbar, variable=self.target_lang,
+            values=[code for code in CONFIG["languages"] if code != "auto"],
+            width=85, height=32, font=ctk.CTkFont(size=12),
+            fg_color="#f8f9fa", text_color="#495057",
+            button_color="#e9ecef", button_hover_color="#dee2e6",
+            dropdown_font=ctk.CTkFont(size=12),
+        )
+        self.target_language_selector.pack(side=tk.LEFT, padx=(0, 8))
 
         # Boutons
         ctk.CTkButton(toolbar, text="<>", command=self.swap_languages,
@@ -1348,6 +1911,11 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         menubar.add_cascade(label="Fichier", menu=file_menu)
         file_menu.add_command(label="Importer", command=self.import_file, accelerator="Ctrl+O")
         file_menu.add_command(label="Exporter", command=self.export_translation, accelerator="Ctrl+S")
+        file_menu.add_command(
+            label="Modifier la configuration...",
+            command=self.edit_configuration,
+            accelerator="Ctrl+,",
+        )
         file_menu.add_separator()
         self.history_menu = tk.Menu(file_menu, tearoff=0)
         file_menu.add_cascade(label="Historique", menu=self.history_menu)
@@ -1368,18 +1936,26 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                      state="readonly", width=12).pack(side=tk.LEFT, padx=(0, 10))
 
         ttk.Label(toolbar, text="Modèle:").pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Combobox(toolbar, textvariable=self.model_var,
-                     values=self.models, state="readonly", width=20).pack(side=tk.LEFT, padx=(0, 20))
+        self.model_selector = ttk.Combobox(
+            toolbar, textvariable=self.model_var,
+            values=self.models or [NO_MODEL_LABEL], state="readonly", width=20,
+        )
+        self.model_selector.pack(side=tk.LEFT, padx=(0, 20))
 
         ttk.Label(toolbar, text="De:").pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Combobox(toolbar, textvariable=self.source_lang,
-                     values=list(CONFIG["languages"]),
-                     state="readonly", width=10).pack(side=tk.LEFT, padx=(0, 10))
+        self.source_language_selector = ttk.Combobox(
+            toolbar, textvariable=self.source_lang,
+            values=list(CONFIG["languages"]), state="readonly", width=10,
+        )
+        self.source_language_selector.pack(side=tk.LEFT, padx=(0, 10))
 
         ttk.Label(toolbar, text="Vers:").pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Combobox(toolbar, textvariable=self.target_lang,
-                     values=[code for code in CONFIG["languages"] if code != "auto"],
-                     state="readonly", width=10).pack(side=tk.LEFT, padx=(0, 10))
+        self.target_language_selector = ttk.Combobox(
+            toolbar, textvariable=self.target_lang,
+            values=[code for code in CONFIG["languages"] if code != "auto"],
+            state="readonly", width=10,
+        )
+        self.target_language_selector.pack(side=tk.LEFT, padx=(0, 10))
 
         ttk.Button(toolbar, text="⟷", command=self.swap_languages).pack(side=tk.LEFT, padx=(10, 5))
         self.action_button = ttk.Button(toolbar, text=self.mode.get(), command=self.translate)
@@ -1432,6 +2008,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         self._setup_link_tags()
         self.bind('<Control-o>', lambda e: self.import_file())
         self.bind('<Control-s>', lambda e: self.export_translation())
+        self.bind('<Control-comma>', lambda e: self.edit_configuration())
         self.bind('<Control-Return>', lambda e: self.translate())
         self.bind('<Control-Shift-C>', lambda e: self.copy_translation())
         self.bind('<Control-l>', lambda e: self.lookup_selection())
@@ -1864,6 +2441,15 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
             self.set_status_text(self.status_label, "Aucun texte à traduire")
             return
 
+        model = self._selected_model()
+        if not model:
+            self.set_status_text(
+                self.status_label,
+                "Aucun modèle disponible : vérifiez models_url ou définissez un modèle par défaut",
+            )
+            return
+        self._remember_last_model(model)
+
         self.is_translating = True
         self.stop_event.clear()
         self.start_time = time.time()
@@ -1875,7 +2461,6 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         mode = self._get_mode_key()
         source_lang = self.source_lang.get()
         target_lang = self.target_lang.get()
-        model = self.model_var.get()
         self.translation_thread = threading.Thread(
             target=self._translate_thread,
             args=(prompt_text, display_text, mode, source_lang, target_lang, model),
@@ -1911,12 +2496,8 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         try:
             prompt = self._build_prompt(mode, source_lang, target_lang, prompt_text)
 
-            payload = {
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "think": CONFIG.get("think", False),
-                "stream": True
-            }
+            api_format = CONFIG.get("api_format", "ollama")
+            payload = _build_chat_payload(model, prompt, stream=True)
             response = requests.post(
                 CONFIG["server_url"],
                 json=payload,
@@ -1924,7 +2505,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                 stream=True,
                 timeout=300,
             )
-            response.raise_for_status()
+            _raise_for_status_with_detail(response)
 
             full_response = ""
 
@@ -1933,13 +2514,10 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                     break
                 if line:
                     try:
-                        data = json.loads(line.decode('utf-8'))
-                        if 'message' in data and 'content' in data['message']:
-                            chunk = data['message']['content']
-                            if chunk:  # Éviter les chunks vides
-                                full_response += chunk
-                                # Insérer via queue (thread-safe)
-                                self.output_queue.put(("insert", chunk))
+                        chunk = _parse_stream_chunk(line, api_format)
+                        if chunk:
+                            full_response += chunk
+                            self.output_queue.put(("insert", chunk))
                     except (json.JSONDecodeError, UnicodeDecodeError):
                         continue
 
@@ -1992,12 +2570,19 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
 
     def _start_lookup(self, selection, area):
         """Démarre la recherche d'alternatives pour une sélection donnée."""
+        model = self._selected_model()
+        if not model:
+            self.set_status_text(
+                self.status_label,
+                "Aucun modèle disponible : vérifiez models_url ou définissez un modèle par défaut",
+            )
+            return
+        self._remember_last_model(model)
         result_text = self._open_lookup_window(selection, area)
         source_text = self.source_text.get("1.0", tk.END).strip()
         target_text = self.target_text.get("1.0", tk.END).strip()
         source_lang = self.source_lang.get()
         target_lang = self.target_lang.get()
-        model = self.model_var.get()
         self.set_status_text(self.status_label, "Recherche d'alternatives...")
 
         lookup_thread = threading.Thread(
@@ -2075,21 +2660,17 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                 },
             )
 
-            payload = {
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "think": CONFIG.get("think", False),
-                "stream": False,
-            }
+            api_format = CONFIG.get("api_format", "ollama")
+            payload = _build_chat_payload(model, prompt, stream=False)
             response = requests.post(
                 CONFIG["server_url"],
                 json=payload,
                 headers=_request_headers(),
                 timeout=120,
             )
-            response.raise_for_status()
+            _raise_for_status_with_detail(response)
             data = response.json()
-            content = data.get("message", {}).get("content", "").strip()
+            content = _parse_chat_response(data, api_format).strip()
             if not content:
                 content = "Aucune alternative reçue."
 
