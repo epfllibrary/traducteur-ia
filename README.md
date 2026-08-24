@@ -19,7 +19,7 @@ Le serveur doit proposer une API Ollama ou une API compatible OpenAI. L'applicat
 
 ### Confidentialité et maîtrise des données
 
-Avec un modèle local, les textes restent sur la machine qui exécute Ollama. Avec un modèle distant, ils sont transmis au serveur configuré : il convient donc d'utiliser un service de confiance et conforme aux règles de protection des données de votre organisation. Traducteur ne transmet les textes qu'à l'endpoint choisi et n'impose aucun fournisseur.
+Avec Ollama et un modèle installés localement, Traducteur peut fonctionner de manière entièrement locale et autonome : les textes restent sur la machine et ne sont transmis à aucun service distant. Une connexion à Internet peut toutefois être nécessaire pour installer Ollama et télécharger initialement le modèle. Avec un modèle distant, les textes sont transmis au serveur configuré : il convient donc d'utiliser un service de confiance et conforme aux règles de protection des données de votre organisation. Traducteur ne transmet les textes qu'à l'endpoint choisi et n'impose aucun fournisseur.
 
 L'application n'anonymise pas automatiquement le contenu. Les informations personnelles, confidentielles ou sensibles doivent être retirées ou anonymisées avant l'envoi lorsqu'elles ne peuvent pas être communiquées au service sélectionné. Cette distinction permet de présenter clairement ce que l'application maîtrise et ce qui dépend du modèle ou de l'infrastructure utilisés.
 

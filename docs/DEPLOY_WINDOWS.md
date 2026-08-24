@@ -49,6 +49,7 @@ pyinstaller --onefile --windowed --distpath bin --name traducteur translate.py
 
 ## Distribution
 - Distribuer uniquement `bin/traducteur-setup.exe`; son assistant crée la configuration et peut proposer l'installation officielle d'Ollama
+- Avec Ollama et le modèle installés sur le poste, l'application peut fonctionner entièrement en local : les textes ne quittent pas la machine; Internet n'est requis que pour les téléchargements initiaux ou les mises à jour souhaitées
 - Le profil EPFL préconfigure RCP avec `swiss-ai/Apertus-v1.5-8B`; l'utilisateur crée sa clé sur https://portal.rcp.epfl.ch/aiaas/keys
 - RCP est réservé aux membres de l'EPFL; les utilisateurs externes sélectionnent **Autre serveur** et configurent Ollama ou leur propre endpoint OpenAI/vLLM
 - Ne pas publier séparément `bin/traducteur.exe` : cet artefact interne est intégré à l'installateur
