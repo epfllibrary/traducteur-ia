@@ -20,6 +20,7 @@
 - **Documentation réorganisée** : les parcours EPFL/RCP, externe, Ollama et OpenAI/vLLM sont distingués et la création initiale de la clé RCP est documentée.
 - **Distribution simplifiée** : le dossier de sortie public devient `bin` et seul `traducteur-setup.exe` est versionné; l'exécutable intermédiaire reste local.
 - **Confidentialité clarifiée** : la documentation présente le fonctionnement entièrement local et autonome avec Ollama, distingue le traitement distant et précise que les contenus sensibles doivent être anonymisés avant leur envoi.
+- **Personnalisation mise en avant** : le README présente les prompts modifiables comme une fonction centrale et donne des exemples d'adaptation des modes Traduire, Réécrire, E-mail et Alternatives.
 
 ### Corrections
 

@@ -60,6 +60,7 @@ L'application exige une configuration indiquant le serveur local ou distant et l
 ```
 
 Copiez `.translator_config.example.json` vers `.translator_config.json`, puis configurez `server_url`, `languages` et les quatre prompts requis. `default_model` peut être vide si `models_url` est renseignée. Les langues de base `fr`, `en`, `de`, `it`, `es` et `pt`, ainsi que `auto`, doivent rester présentes; d'autres langues peuvent être ajoutées librement. Si aucun fichier n'est détecté, l'application demande de le sélectionner. Le fichier local `.translator_config.json` est ignoré par Git.
+Les modes **Traduire**, **Réécrire**, **E-mail** et **Alternatives** sont pilotés entièrement par ces prompts. Leur ton, leur terminologie, leurs contraintes et leur format de réponse peuvent être adaptés sans modifier le code; les changements valides sont rechargés automatiquement.
 Le modèle indiqué est un exemple multilingue compact, pas un prérequis. Tout modèle exposé par le serveur Ollama ou OpenAI/vLLM configuré peut être utilisé.
 La clé historique `model` est encore acceptée, mais `default_model` est la clé recommandée.
 `server_url` est utilisée exactement telle qu'elle est écrite. `models_url` est facultative et charge dynamiquement `/api/tags` au format Ollama ou `/v1/models` au format OpenAI.

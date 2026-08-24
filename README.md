@@ -4,6 +4,8 @@ Traducteur IA 1.1.0 est une application Windows conçue pour traduire et réécr
 
 L'application s'appuie sur un grand modèle de langage (LLM) accessible par une API Ollama ou OpenAI/vLLM. Selon vos besoins, ce modèle peut être exécuté localement sur votre ordinateur ou hébergé sur un serveur distant. Le projet vise à offrir une interface de traduction pratique tout en laissant l'organisation ou l'utilisateur maîtriser l'emplacement et les conditions de traitement des données.
 
+Traducteur est un logiciel libre sous licence GPLv3, conçu pour rester ouvert et adaptable. Les instructions des modes **Traduire**, **Réécrire**, **E-mail** et **Alternatives** ne sont pas figées dans le programme : chacun peut modifier les prompts correspondants dans le fichier de configuration pour les adapter à son vocabulaire, son ton, son domaine professionnel ou ses règles rédactionnelles, sans modifier ni recompiler le code.
+
 ## 🖼️ Aperçu
 
 ![Aperçu de l'interface de Traducteur IA 1.1.0](img/Exemple_interface.png)
@@ -56,7 +58,8 @@ Si Traducteur est déjà installé, l'assistant le détecte dans le registre Win
 
 ### Traduction Avancée
 - **Streaming en temps réel** : Affichage progressif de la traduction
-- **Modes multiples** : Traduction, réécriture, emails professionnels
+- **Modes multiples** : Traduction, réécriture, e-mails professionnels
+- **Modes personnalisables** : Les prompts de traduction, réécriture, e-mail et recherche d'alternatives sont entièrement modifiables dans la configuration
 - **Action contextuelle** : Le bouton principal reprend automatiquement le mode sélectionné (`Traduire`, `Réécrire` ou `E-mail`)
 - **Copie rapide** : Bouton `Copier` pour envoyer la traduction dans le presse-papier
 - **Inversion intelligente** : Le bouton d'inversion reprend la traduction comme nouveau texte source quand elle existe, puis relance la traduction automatiquement
@@ -90,6 +93,18 @@ Utilisez un tag de taille explicite, comme `ministral-3:3b`, plutôt que `minist
 
 ### Configuration de l'application
 La connexion à un modèle local ou distant se configure obligatoirement dans `.translator_config.json`. Les champs `server_url`, `languages` et les quatre prompts `traduire`, `réécrire`, `email` et `lookup` sont requis. `default_model` peut rester vide lorsque `models_url` est renseignée.
+
+#### Des modes ouverts et personnalisables
+
+Le comportement de chaque mode est défini par un prompt lisible et modifiable. Depuis **Fichier > Modifier la configuration...**, vous pouvez par exemple :
+
+- imposer une terminologie métier ou institutionnelle au mode **Traduire** ;
+- demander une traduction littérale, naturelle, inclusive ou adaptée à un public précis ;
+- transformer **Réécrire** en correcteur minimal, en éditeur concis ou en assistant de simplification ;
+- choisir pour **E-mail** un ton cordial, formel, direct ou propre à votre organisation ;
+- adapter le nombre, le format et les explications des propositions du mode **Alternatives**.
+
+Les changements valides sont appliqués automatiquement, sans redémarrage ni recompilation. Les variables telles que `{text}`, `{source_language}` et `{target_language}` doivent simplement être conservées lorsqu'elles sont nécessaires au mode. Le prompt `lookup` peut également utiliser `{translation}` et `{selection}`. Cette architecture permet à une personne, une équipe ou une institution de définir ses propres règles tout en gardant la même interface.
 
 L'application cherche automatiquement ce fichier dans cet ordre :
 - le chemin défini par la variable d'environnement `TRANSLATOR_CONFIG` ;
