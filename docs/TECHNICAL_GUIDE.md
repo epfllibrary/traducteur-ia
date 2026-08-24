@@ -30,7 +30,7 @@ pip install -r requirements.txt
 python translate.py
 ```
 
-Le fichier de configuration de l'application (`.translator_config.json`) doit être placé à côté de `translate.py`, sélectionné au démarrage ou indiqué avec la variable d'environnement `TRANSLATOR_CONFIG`.
+Le fichier de configuration de l'application (`.translator_config.json`) doit normalement être placé à côté de `translate.py` ou sélectionné au démarrage.
 
 ## Structure du dépôt
 

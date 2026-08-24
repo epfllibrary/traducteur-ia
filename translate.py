@@ -24,7 +24,7 @@ APP_NAME = "Traducteur"
 APP_VERSION = "1.1.0"
 APP_MUTEX_NAME = "TraducteurAppMutex-8E28A203-8A35-4F78-BE6B-FD0718E146AD"
 APP_SHUTDOWN_EVENT_NAME = "Local\\TraducteurShutdownEvent-8E28A203-8A35-4F78-BE6B-FD0718E146AD"
-START_HIDDEN = any(argument.lower() in {"--hidden", "--startup"} for argument in sys.argv[1:])
+START_HIDDEN = any(argument.lower() == "--hidden" for argument in sys.argv[1:])
 SHUTDOWN_REQUESTED = any(argument.lower() == "--shutdown" for argument in sys.argv[1:])
 _APP_MUTEX_HANDLE = None
 
@@ -74,20 +74,11 @@ MODE_LABELS = {
     "email": "E-mail",
 }
 MODE_KEYS_BY_LABEL = {label: key for key, label in MODE_LABELS.items()}
-PROMPT_KEY_ALIASES = {
-    "translate": "translate",
+PROMPT_CONFIG_KEYS = {
     "traduire": "translate",
-    "translation": "translate",
-    "rewrite": "rewrite",
     "réécrire": "rewrite",
-    "reecrire": "rewrite",
-    "reécrire": "rewrite",
     "email": "email",
-    "e-mail": "email",
-    "mail": "email",
     "lookup": "lookup",
-    "synonymes": "lookup",
-    "alternatives": "lookup",
 }
 REQUIRED_PROMPTS = ("translate", "rewrite", "email", "lookup")
 REQUIRED_LANGUAGES = ("auto", "fr", "en", "de", "it", "es", "pt")
@@ -356,23 +347,6 @@ def _parse_clipboard_html(raw_html):
     return text, links, styles
 
 
-def _escape_markdown_link_text(text):
-    """Échappe le texte visible d'un lien Markdown."""
-    return text.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
-
-
-def _html_links_to_markdown(text, links):
-    """Remplace les liens HTML extraits par des liens Markdown visibles."""
-    markdown_text = text
-    for start, end, href in sorted(links, key=lambda item: item[0], reverse=True):
-        label = markdown_text[start:end]
-        if not label.strip() or not href:
-            continue
-        replacement = f"[{_escape_markdown_link_text(label)}]({href})"
-        markdown_text = markdown_text[:start] + replacement + markdown_text[end:]
-    return markdown_text
-
-
 def _markdown_links_to_text(markdown_text):
     """Convertit les liens Markdown en texte visible + ranges de liens."""
     parts = []
@@ -579,27 +553,13 @@ def _get_windows_clipboard_html():
     return data.rstrip(b"\x00").decode("utf-8", errors="replace")
 
 
-def _config_candidates():
-    """Emplacements automatiques du fichier de configuration obligatoire."""
+def _automatic_config_path():
+    """Chemin automatique du fichier de configuration obligatoire."""
     if getattr(sys, "frozen", False):
         app_dir = Path(sys.executable).resolve().parent
     else:
         app_dir = Path(__file__).resolve().parent
-
-    candidates = [
-        Path(os.environ["TRANSLATOR_CONFIG"]) if os.environ.get("TRANSLATOR_CONFIG") else None,
-        app_dir / ".translator_config.json",
-        Path.cwd() / ".translator_config.json",
-    ]
-
-    seen = set()
-    for path in candidates:
-        if path is None:
-            continue
-        resolved = path.resolve()
-        if resolved not in seen:
-            seen.add(resolved)
-            yield path
+    return app_dir / ".translator_config.json"
 
 
 class ConfigError(Exception):
@@ -639,7 +599,7 @@ def _choose_config_file(error_message=None):
 
 
 def _as_bool(value):
-    """Interprète proprement les booléens venant du JSON ou d'anciennes configs."""
+    """Interprète proprement les booléens venant du fichier JSON."""
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -660,7 +620,7 @@ def _validate_config(user_config, path):
         raise ConfigError(f"La configuration {path} doit contenir un objet JSON.")
 
     server_url = user_config.get("server_url")
-    default_model = user_config.get("default_model", user_config.get("model", ""))
+    default_model = user_config.get("default_model", "")
     models_url = user_config.get("models_url", "")
     api_format = str(user_config.get("api_format", "ollama")).strip().lower()
     invalid_fields = []
@@ -686,7 +646,7 @@ def _validate_config(user_config, path):
     prompts = {}
     if isinstance(user_prompts, dict):
         for key, value in user_prompts.items():
-            prompt_key = PROMPT_KEY_ALIASES.get(str(key).strip().lower())
+            prompt_key = PROMPT_CONFIG_KEYS.get(str(key).strip().lower())
             if prompt_key and isinstance(value, str) and value.strip():
                 prompts[prompt_key] = value
     missing_prompts = [key for key in REQUIRED_PROMPTS if key not in prompts]
@@ -721,7 +681,6 @@ def _validate_config(user_config, path):
     config["api_format"] = api_format
     config["prompts"] = prompts
     config["languages"] = languages
-    config.pop("models", None)
     config["_config_source"] = str(path)
 
     return config
@@ -740,10 +699,11 @@ def _read_config(path):
 
 def load_config(config_path=None, ask_if_missing=True):
     """Charge la configuration obligatoire ou demande son emplacement."""
-    path = Path(config_path) if config_path is not None else next(
-        (candidate for candidate in _config_candidates() if candidate.is_file()),
-        None,
-    )
+    if config_path is not None:
+        path = Path(config_path)
+    else:
+        automatic_path = _automatic_config_path()
+        path = automatic_path if automatic_path.is_file() else None
 
     while True:
         if path is None:
@@ -762,15 +722,8 @@ def load_config(config_path=None, ask_if_missing=True):
     config["api_key"] = str(config.get("api_key", "")).strip()
     config["api_key_header"] = str(config.get("api_key_header", "Authorization")).strip() or "Authorization"
     config["hide_window_on_start"] = _as_bool(
-        config.get(
-            "hide_window_on_start",
-            config.get("masquer_fenetre_au_lancement", False),
-        )
+        config.get("hide_window_on_start", False)
     )
-
-    default_model = config["default_model"]
-    config["default_model"] = default_model
-    config["model"] = default_model
 
     return config
 
@@ -1224,7 +1177,8 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
             container,
             text=(
                 f"Fichier : {config_path}\n"
-                "server_url est l'URL d'inférence exacte. models_url est facultative. "
+                "server_url est l'URL d'inférence exacte. models_url est facultative "
+                "et accepte les listes Ollama (/api/tags) ou OpenAI/vLLM (/v1/models). "
                 "api_format accepte ollama ou openai."
             ),
             wraplength=780,

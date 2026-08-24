@@ -108,12 +108,7 @@ Le comportement de chaque mode est défini par un prompt lisible et modifiable. 
 
 Les changements valides sont appliqués automatiquement, sans redémarrage ni recompilation. Les variables telles que `{text}`, `{source_language}` et `{target_language}` doivent simplement être conservées lorsqu'elles sont nécessaires au mode. Le prompt `lookup` peut également utiliser `{translation}` et `{selection}`. Cette architecture permet à une personne, une équipe ou une institution de définir ses propres règles tout en gardant la même interface.
 
-L'application cherche automatiquement ce fichier dans cet ordre :
-- le chemin défini par la variable d'environnement `TRANSLATOR_CONFIG` ;
-- le dossier du script ou de l'exécutable ;
-- le dossier courant.
-
-Si aucun fichier n'est trouvé, un sélecteur demande de choisir une configuration JSON. L'application ne démarre pas si la sélection est annulée ou si le fichier est invalide. Pour éviter de le sélectionner à chaque lancement, placez-le à côté du script ou de l'exécutable, ou définissez `TRANSLATOR_CONFIG`.
+Dans une installation normale, l'assistant crée ce fichier à côté de l'exécutable et l'application le retrouve automatiquement. Lors d'un lancement depuis les sources, placez-le à côté de `translate.py`. Si aucun fichier n'est trouvé, un sélecteur permet de choisir une configuration JSON; l'application ne démarre pas si la sélection est annulée ou si le fichier est invalide.
 
 Exemple :
 ```json
@@ -147,8 +142,8 @@ Exemple :
 
 `server_url` est l'URL exacte appelée pour une traduction ou une recherche d'alternatives. L'application ne lui ajoute aucun chemin : indiquez donc l'endpoint complet attendu par le serveur, qu'il soit servi par Ollama ou par une autre solution acceptant le même format de requête.
 `api_format` accepte `ollama` ou `openai`. Le mode `openai` prend en charge les serveurs vLLM compatibles Chat Completions, leur streaming SSE et la liste `/v1/models`.
-La clé historique `model` reste acceptée, mais `default_model` est désormais préférée. Un modèle par défaut n'est pas obligatoire si `models_url` est définie.
-`models_url` est facultative. Lorsqu'elle est définie, elle est appelée telle quelle pour charger une liste au format Ollama (`{"models": [{"name": "..."}]`). Si elle est absente, vide ou inaccessible, `default_model` sert de repli. Au moins l'une de ces deux valeurs doit être renseignée.
+Un modèle par défaut n'est pas obligatoire si `models_url` est définie.
+`models_url` est facultative et utilisée telle quelle. Avec Ollama, elle pointe généralement vers `/api/tags` et l'application lit `models[].name`. Avec OpenAI/vLLM, elle pointe généralement vers `/v1/models` et l'application lit `data[].id`. Si elle est absente, vide ou inaccessible, `default_model` sert de repli. Au moins l'une de ces deux valeurs doit être renseignée.
 Le dernier modèle réellement utilisé est mémorisé dans `.translator_state.json` et restauré au prochain lancement. `default_model` reste uniquement le choix initial ou de repli modifiable depuis **Fichier > Modifier la configuration...**.
 Le fichier actif est surveillé toutes les secondes. Une modification valide rafraîchit automatiquement les menus et les paramètres; une erreur JSON ou réseau est signalée et la dernière configuration valide reste active.
 
@@ -174,8 +169,8 @@ Pour une API OpenAI/vLLM, l'application accepte les deux endpoints. Une URL se t
 non streamées sont interprétés selon le format correspondant.
 Si `api_key` est renseignée, elle est envoyée avec chaque requête. Par défaut l'en-tête est `Authorization: Bearer <api_key>`. Pour un endpoint qui attend un autre en-tête, mettez par exemple `"api_key_header": "X-API-Key"`.
 `think` est désactivé par défaut car la traduction bénéficie surtout d'une réponse directe et rapide. Mettez `"think": true` seulement si vous voulez explicitement activer le raisonnement des modèles compatibles.
-`hide_window_on_start` permet de lancer l'application directement en arrière-plan. L'alias français `masquer_fenetre_au_lancement` est aussi accepté.
-Les prompts utilisent les variables `{source_language}`, `{target_language}` et `{text}`. Le prompt `lookup` peut aussi utiliser `{translation}` et `{selection}`. Les clés anglaises `translate` et `rewrite` restent acceptées.
+`hide_window_on_start` permet de lancer l'application directement en arrière-plan.
+Les prompts utilisent les variables `{source_language}`, `{target_language}` et `{text}`. Le prompt `lookup` peut aussi utiliser `{translation}` et `{selection}`.
 Tous les textes de prompt proviennent du fichier JSON : aucun prompt de repli n'est intégré dans `translate.py`.
 `languages` associe chaque code affiché dans l'interface au libellé injecté dans les prompts. Les codes utilisent de préférence le format ISO 639-1 (`fr`, `en`, `de`, etc.). `auto` est réservé à la détection automatique de la langue source.
 

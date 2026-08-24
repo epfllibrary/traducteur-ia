@@ -22,6 +22,9 @@
 - **Confidentialité clarifiée** : la documentation présente le fonctionnement entièrement local et autonome avec Ollama, distingue le traitement distant et précise que les contenus sensibles doivent être anonymisés avant leur envoi.
 - **Personnalisation mise en avant** : le README présente les prompts modifiables comme une fonction centrale et donne des exemples d'adaptation des modes Traduire, Réécrire, E-mail et Alternatives.
 - **README recentré** : la comparaison ponctuelle de tailles de modèles a été retirée, la fonction `lookup` est expliquée comme la recherche d'alternatives et les sections d'architecture, de compilation et de dépannage sont regroupées dans la documentation technique.
+- **Configuration simplifiée** : suppression du chemin imposé par variable d'environnement; l'application utilise le fichier créé à côté de l'exécutable ou le sélecteur lorsqu'aucune configuration n'est trouvée.
+- **Compatibilité historique retirée** : suppression des anciennes clés et variantes de configuration non utilisées, de la recherche dans le dossier courant et de deux fonctions de conversion Markdown devenues inaccessibles.
+- **Découverte vLLM explicitée** : la documentation et l'éditeur de configuration indiquent que `models_url` accepte aussi le format OpenAI/vLLM de `/v1/models`.
 
 ### Corrections
 
@@ -50,8 +53,7 @@
 - **Prompts optimisés** : Traduction fidèle, réécriture naturelle, et e-mail cordial, professionnel, fluide, sans style trop artificiel.
 - **Liens préservés** : Les prompts demandent de conserver les liens, URL et destinations Markdown/HTML.
 - **Inversion améliorée** : Le bouton d'inversion reprend la traduction comme nouveau texte source quand elle existe, puis relance automatiquement la traduction.
-- **Config plus souple** : L'alias français `masquer_fenetre_au_lancement` est aussi accepté pour le démarrage masqué.
-- **Recherche de config simplifiée** : Variable `TRANSLATOR_CONFIG`, dossier de l'application, puis dossier courant.
+- **Recherche de config simplifiée** : dossier de l'application, puis dossier courant.
 - **Prompts externalisés** : Suppression de `DEFAULT_CONFIG` et des prompts de repli dans `translate.py`; les quatre prompts proviennent obligatoirement du JSON.
 - **Langues configurables** : Déplacement des libellés de langues dans le JSON, avec conservation obligatoire de `auto`, `fr`, `en`, `de`, `it`, `es` et `pt`.
 - **Modèles dynamiques** : Suppression de la clé `models`; la liste provient de l'API Ollama et `default_model` sert de repli.
@@ -92,7 +94,7 @@
 - **System Tray intégré** : Menu contextuel avec Afficher, Traduire Clipboard, Quitter
 - **Écoute des touches globales** : Raccourci clavier qui fonctionne partout
 - **Temporisation presse-papier** : Attente courte avant lecture du presse-papier puis lancement automatique après réaffichage de la fenêtre
-- **Recherche config multi-emplacements** : Variable `TRANSLATOR_CONFIG`, dossier script/exécutable, `dist`, anciens dossiers `tkinter`, puis dossier utilisateur
+- **Recherche config multi-emplacements** : dossier script/exécutable, `dist`, anciens dossiers `tkinter`, puis dossier utilisateur
 - **Extraction PDF** : Utilisation de pdfplumber pour extraction de texte précise
 - **Lecture Word** : Utilisation de python-docx pour fichiers .docx
 - **Gestion d'erreurs robuste** : Détection des formats non supportés et fichiers vides
