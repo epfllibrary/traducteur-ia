@@ -21,6 +21,7 @@
 - **Distribution simplifiée** : le dossier de sortie public devient `bin` et seul `traducteur-setup.exe` est versionné; l'exécutable intermédiaire reste local.
 - **Confidentialité clarifiée** : la documentation présente le fonctionnement entièrement local et autonome avec Ollama, distingue le traitement distant et précise que les contenus sensibles doivent être anonymisés avant leur envoi.
 - **Personnalisation mise en avant** : le README présente les prompts modifiables comme une fonction centrale et donne des exemples d'adaptation des modes Traduire, Réécrire, E-mail et Alternatives.
+- **README recentré** : la comparaison ponctuelle de tailles de modèles a été retirée, la fonction `lookup` est expliquée comme la recherche d'alternatives et les sections d'architecture, de compilation et de dépannage sont regroupées dans la documentation technique.
 
 ### Corrections
 

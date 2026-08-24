@@ -4,7 +4,7 @@ Traducteur IA 1.1.0 est une application Windows conçue pour traduire et réécr
 
 L'application s'appuie sur un grand modèle de langage (LLM) accessible par une API Ollama ou OpenAI/vLLM. Selon vos besoins, ce modèle peut être exécuté localement sur votre ordinateur ou hébergé sur un serveur distant. Le projet vise à offrir une interface de traduction pratique tout en laissant l'organisation ou l'utilisateur maîtriser l'emplacement et les conditions de traitement des données.
 
-Traducteur est un logiciel libre sous licence GPLv3, conçu pour rester ouvert et adaptable. Les instructions des modes **Traduire**, **Réécrire**, **E-mail** et **Alternatives** ne sont pas figées dans le programme : chacun peut modifier les prompts correspondants dans le fichier de configuration pour les adapter à son vocabulaire, son ton, son domaine professionnel ou ses règles rédactionnelles, sans modifier ni recompiler le code.
+Traducteur est un logiciel libre sous licence GPLv3, conçu pour rester ouvert et adaptable. Les instructions des modes **Traduire**, **Réécrire** et **E-mail**, ainsi que celles de la fonction **Alternatives**, ne sont pas figées dans le programme : chacun peut modifier les prompts correspondants dans le fichier de configuration pour les adapter à son vocabulaire, son ton, son domaine professionnel ou ses règles rédactionnelles, sans modifier ni recompiler le code.
 
 ## 🖼️ Aperçu
 
@@ -63,7 +63,7 @@ Si Traducteur est déjà installé, l'assistant le détecte dans le registre Win
 - **Action contextuelle** : Le bouton principal reprend automatiquement le mode sélectionné (`Traduire`, `Réécrire` ou `E-mail`)
 - **Copie rapide** : Bouton `Copier` pour envoyer la traduction dans le presse-papier
 - **Inversion intelligente** : Le bouton d'inversion reprend la traduction comme nouveau texte source quand elle existe, puis relance la traduction automatiquement
-- **Alternatives contextuelles** : Sélectionnez un mot ou une phrase dans la traduction pour afficher `Alternatives`; clic droit ou `Ctrl+L` restent disponibles
+- **Alternatives contextuelles** : La fonction `lookup`, nommée **Alternatives** dans l'interface, utilise le segment sélectionné, le texte source et la traduction actuelle pour proposer des formulations de remplacement avec leurs nuances; elle est accessible par le bouton contextuel, un clic droit ou `Ctrl+L`
 - **Liens préservés** : Les prompts demandent explicitement de conserver les liens, URL et destinations Markdown/HTML
 - **Liens cliquables** : Les URL visibles et les liens HTML copiés depuis le presse-papiers restent cliquables; le Markdown est utilisé en interne pour préserver les liens pendant la traduction
 - **Styles préservés** : Les titres `h1` à `h6`, le gras et l'italique du presse-papiers HTML sont conservés, transmis au modèle en Markdown puis rendus dans la traduction
@@ -87,12 +87,14 @@ Si Traducteur est déjà installé, l'assistant le détecte dans le registre Win
 2. Téléchargez un modèle, par exemple : `ollama pull ministral-3:3b`
 3. Lancez le serveur: `ollama serve`
 
-`ministral-3:3b` n'est qu'un exemple actuel de petit modèle multilingue adapté à une exécution locale; l'application ne l'impose pas. Il appartient à la même catégorie 3B que `llama3.2:3b`, mais son téléchargement Ollama est un peu plus volumineux (environ 3 Go contre 2 Go). `qwen3:4b` constitue également une alternative multilingue compacte. La qualité varie selon les langues, les textes et le matériel : comparez idéalement quelques traductions représentatives avant de fixer `default_model`.
+`ministral-3:3b` n'est qu'un exemple de modèle multilingue utilisable localement; l'application ne l'impose pas. Choisissez un modèle adapté à votre matériel, à vos langues et à vos exigences de qualité, puis comparez quelques traductions représentatives avant de fixer `default_model`.
 
 Utilisez un tag de taille explicite, comme `ministral-3:3b`, plutôt que `ministral-3:latest` : le tag `latest` peut désigner une variante plus lourde et évoluer ultérieurement. Consultez les fiches Ollama de [Ministral 3](https://ollama.com/library/ministral-3), [Llama 3.2](https://ollama.com/library/llama3.2) et [Qwen 3](https://ollama.com/library/qwen3) pour vérifier les variantes disponibles.
 
 ### Configuration de l'application
 La connexion à un modèle local ou distant se configure obligatoirement dans `.translator_config.json`. Les champs `server_url`, `languages` et les quatre prompts `traduire`, `réécrire`, `email` et `lookup` sont requis. `default_model` peut rester vide lorsque `models_url` est renseignée.
+
+Dans la configuration, `lookup` est le nom interne de la fonction **Alternatives**. Elle ne remplace pas automatiquement le texte : elle analyse le passage sélectionné dans son contexte et affiche des propositions parmi lesquelles l'utilisateur peut choisir.
 
 #### Des modes ouverts et personnalisables
 
@@ -102,7 +104,7 @@ Le comportement de chaque mode est défini par un prompt lisible et modifiable. 
 - demander une traduction littérale, naturelle, inclusive ou adaptée à un public précis ;
 - transformer **Réécrire** en correcteur minimal, en éditeur concis ou en assistant de simplification ;
 - choisir pour **E-mail** un ton cordial, formel, direct ou propre à votre organisation ;
-- adapter le nombre, le format et les explications des propositions du mode **Alternatives**.
+- adapter le nombre, le format et les explications des propositions de la fonction **Alternatives**.
 
 Les changements valides sont appliqués automatiquement, sans redémarrage ni recompilation. Les variables telles que `{text}`, `{source_language}` et `{target_language}` doivent simplement être conservées lorsqu'elles sont nécessaires au mode. Le prompt `lookup` peut également utiliser `{translation}` et `{selection}`. Cette architecture permet à une personne, une équipe ou une institution de définir ses propres règles tout en gardant la même interface.
 
@@ -197,90 +199,15 @@ Lorsque du contenu rendu est copié depuis un navigateur ou une application comp
 - Le menu **Fichier > Quitter** ou **Quitter** depuis le tray ferme réellement l'application.
 - Le menu **Fichier > Modifier la configuration...** ouvre le JSON actif, le valide avant l'enregistrement et applique immédiatement les nouveaux réglages.
 
-## 🏗️ Architecture
+## 📚 Documentation technique
 
-### Technologies
-- **Tkinter/CustomTkinter** : Interface graphique
-- **Threading** : Traduction asynchrone
-- **Queue** : Communication thread-safe
-- **Requests** : appels aux API HTTP Ollama et OpenAI/vLLM, locales ou distantes
+Le README reste centré sur l'installation, l'utilisation et la personnalisation de Traducteur. Les informations destinées au développement et au déploiement sont regroupées dans des guides séparés :
 
-### Structure du code
-- `TranslatorApp` : Classe principale gérant l'interface
-- Méthodes thread-safe pour les mises à jour d'interface
-- Gestion d'erreurs robuste et messages utilisateur informatifs
-
-## 📦 Déploiement
-
-### ⚠️ **Important : Cross-compilation**
-
-**Un exécutable créé sur Linux ne fonctionne pas sur Windows !**
-PyInstaller crée des binaires spécifiques à l'architecture et au système d'exploitation.
-
-### Création d'un exécutable Windows
-
-#### Solution recommandée : Compiler sur Windows natif
-```cmd
-REM Sur Windows, ouvrir PowerShell/Command Prompt
-pip install -r requirements.txt
-pip install pyinstaller
-pyinstaller --onefile --windowed --distpath bin --name traducteur translate.py
-```
-
-#### Scripts automatisés
-- `scripts/build_windows.ps1` : Script PowerShell (recommandé)
-- `scripts/build_windows.bat` : Script batch pour cmd
-- `scripts/build_installer.ps1` : compilation de l'installateur avec Inno Setup 6
-
-#### Utilisation des scripts
-```cmd
-REM Télécharger/cloner le projet sur Windows
-.\scripts\build_windows.ps1
-
-REM Après avoir créé bin\traducteur.exe et installé Inno Setup 6
-.\scripts\build_installer.ps1
-```
-
-### Distribution
-- **Livrable public** : seul `bin/traducteur-setup.exe` est publié; il guide la configuration et peut proposer l'installation d'Ollama
-- **Exécutable interne** : `bin/traducteur.exe` sert à construire l'installateur, y est intégré et reste ignoré par Git
-- **Python non requis** : l'installateur fournit l'application complète ; il n'est pas nécessaire d'installer Python, pip ou les dépendances du projet
-- **Dépendances externes** : Ollama doit être installé séparément uniquement si le modèle est exécuté localement
-- **Compatibilité** : L'exécutable est spécifique au système d'exploitation
-
-L'installateur crée `.translator_config.json` avec les valeurs choisies dans l'assistant. Il installe également une entrée **Désinstaller Traducteur** dans le menu Démarrer. Le désinstalleur demande si la configuration et l'état utilisateur doivent aussi être supprimés. Le fichier local n'est pas versionné afin d'éviter de publier des clés ou des réglages internes.
-
-#### Alternatives si pas d'accès Windows
-- **Auto Py to Exe** : Interface graphique locale pour créer des exe sur Windows
-- **IT Guide** : `docs/IT_GUIDE.md` pour expliquer à votre équipe IT
-
-### Scripts de build
-- `scripts/build_windows.ps1` : PowerShell (recommandé)
-- `scripts/build_windows.bat` : Command prompt
-- `scripts/build_installer.ps1` : installateur Windows avec Inno Setup 6
-- `docs/BUILD_INSTRUCTIONS.md` : Guide détaillé
-
-#### Services en ligne
-- **Auto Py to Exe** : Interface graphique locale sur Windows
-- **GitHub Actions** : CI/CD pour compilation multi-plateforme
-
-### Optimisations PyInstaller
-- `--onefile` : Exécutable unique
-- `--windowed` : Pas de console (interface graphique uniquement)
-- `--name` : Nom personnalisé de l'exécutable
-
-## 🔧 Dépannage
-
-### Problèmes courants
-- **"Connexion refusée"** : Vérifiez l'adresse `server_url` et l'accessibilité du serveur ; en local, vérifiez qu'Ollama est lancé (`ollama serve`)
-- **"Module non trouvé"** : Installez les dépendances avec `pip install -r requirements.txt`
-- **"Erreur d'encodage"** : Les fichiers PDF/Word doivent contenir du texte extractible
-- **Double Ctrl+C sans effet** : Vérifiez que `pynput` est installé et relancez l'application après installation
-
-### Support fichiers
-- **PDF** : Nécessite `pdfplumber` pour l'extraction de texte
-- **DOCX** : Nécessite `python-docx` pour la lecture Word
-- **TXT** : Support UTF-8 natif
+- [Architecture et développement](docs/TECHNICAL_GUIDE.md)
+- [Compilation de l'application et de l'installateur](docs/BUILD_INSTRUCTIONS.md)
+- [Déploiement et dépannage sous Windows](docs/DEPLOY_WINDOWS.md)
+- [Guide de déploiement pour l'IT](docs/IT_GUIDE.md)
+- [Fonctionnalités, limitations et dépannage](docs/FEATURES.md)
 
 ## 📋 Changelog
 
@@ -289,49 +216,6 @@ Voir [CHANGELOG.md](CHANGELOG.md) pour l'historique complet des versions.
 ## 🤝 Contribution
 
 Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou proposer une pull request.
-
-## 🛠️ Développement depuis les sources (optionnel)
-
-Cette section concerne les personnes qui souhaitent modifier ou reconstruire l'application. Pour une utilisation normale sous Windows, privilégiez l'installateur présenté au début du README.
-
-### Prérequis de développement
-
-- **Python 3.8+**
-- **Un accès à une API Ollama ou compatible OpenAI**, locale ou distante
-- Pour une utilisation locale : **Ollama** installé avec le modèle de votre choix
-
-### Installation des dépendances
-
-```bash
-pip install -r requirements.txt
-```
-
-Les composants facultatifs peuvent aussi être installés séparément :
-
-```bash
-pip install customtkinter  # Interface moderne
-pip install pystray pillow # System tray
-pip install pynput         # Raccourcis globaux
-pip install pdfplumber python-docx  # Support fichiers PDF/Word
-```
-
-### Lancement depuis les sources
-
-```bash
-python translate.py
-```
-
-La configuration `.translator_config.json` reste obligatoire et doit être placée à côté de `translate.py`, sélectionnée au démarrage ou indiquée avec `TRANSLATOR_CONFIG`.
-
-### Structure du dépôt
-
-- `translate.py` : application principale actuelle.
-- `requirements.txt` : dépendances Python de la version 1.1.0.
-- `.translator_config.example.json` : modèle de configuration sans secret.
-- `img/` : captures d'écran utilisées dans la documentation.
-- `installer/` : définition de l'installateur Windows Inno Setup.
-- `scripts/` : scripts de build de l'exécutable et de l'installateur Windows.
-- `docs/` : guides détaillés et documentation complémentaire.
 
 ## Réalisation
 
