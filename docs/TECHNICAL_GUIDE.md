@@ -14,7 +14,7 @@ La classe `TranslatorApp` gère l'interface et les interactions utilisateur. La 
 
 ## Prérequis de développement
 
-- Python 3.8 ou version ultérieure ;
+- Python 3.11 ou version ultérieure ;
 - un accès à une API Ollama ou compatible OpenAI, locale ou distante ;
 - Ollama et un modèle téléchargé si l'inférence doit fonctionner localement.
 

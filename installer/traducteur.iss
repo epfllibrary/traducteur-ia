@@ -1,9 +1,11 @@
 #define MyAppName "Traducteur"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.1.1"
 #define MyAppPublisher "Sylvain Vuilleumier"
 #define MyAppURL "https://gitlab.epfl.ch/sisb-public/id/traducteur"
 #define MyAppExeName "traducteur.exe"
-#define OllamaSetupURL "https://ollama.com/download/OllamaSetup.exe"
+// Mettre à jour ensemble l'URL versionnée et le SHA-256 publié dans sha256sum.txt.
+#define OllamaSetupURL "https://github.com/ollama/ollama/releases/download/v0.40.13/OllamaSetup.exe"
+#define OllamaSetupSHA256 "9e3c76e54e7184c68e88a2378b909bf59bbe454f83c076cb4f4a717e946ae719"
 #define AppMutexName "TraducteurAppMutex-8E28A203-8A35-4F78-BE6B-FD0718E146AD"
 #define SetupMutexName "TraducteurSetupMutex-8E28A203-8A35-4F78-BE6B-FD0718E146AD"
 #ifndef MyAppExeSource
@@ -36,7 +38,7 @@ WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 LicenseFile=..\LICENSE
 UninstallDisplayIcon={app}\{#MyAppExeName}
-VersionInfoVersion=1.1.0.0
+VersionInfoVersion=1.1.1.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=Installateur de Traducteur
 VersionInfoProductName={#MyAppName}
@@ -812,6 +814,19 @@ begin
       'Utilisez son désinstalleur puis relancez cette installation.';
 end;
 
+function IsSafeOllamaModelName(const Value: String): Boolean;
+var
+  Index: Integer;
+begin
+  Result := False;
+  if (Value = '') or (Value[1] = '-') then
+    Exit;
+  for Index := 1 to Length(Value) do
+    if Pos(Value[Index], 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-/:') = 0 then
+      Exit;
+  Result := True;
+end;
+
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
@@ -882,6 +897,14 @@ begin
         mbError,
         MB_OK
       );
+      Result := False;
+    end;
+    if Result and LocalOllamaConfigurationSelected and
+      (Trim(ConfigPage.Values[2]) <> '') and
+      not IsSafeOllamaModelName(Trim(ConfigPage.Values[2])) then
+    begin
+      MsgBox('Nom de modèle Ollama invalide : utilisez des lettres, chiffres, ' +
+        'points, tirets, deux-points ou barres obliques, sans tiret initial.', mbError, MB_OK);
       Result := False;
     end;
   end;
@@ -972,7 +995,7 @@ begin
         Exit;
 
       OllamaDownloadPage.Clear;
-      OllamaDownloadPage.Add('{#OllamaSetupURL}', 'OllamaSetup.exe', '');
+      OllamaDownloadPage.Add('{#OllamaSetupURL}', 'OllamaSetup.exe', '{#OllamaSetupSHA256}');
       OllamaDownloadPage.Show;
       try
         OllamaDownloadPage.Download;
@@ -1005,6 +1028,8 @@ begin
       RaiseException('Le service local Ollama n''a pas pu être démarré.');
 
     ModelName := Trim(ConfigPage.Values[2]);
+    if (ModelName <> '') and not IsSafeOllamaModelName(ModelName) then
+      RaiseException('Nom de modèle Ollama invalide.');
     if (ModelName <> '') and
       not OllamaCommandSucceeds('show "' + ModelName + '"') then
     begin

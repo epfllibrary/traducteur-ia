@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Traducteur 1.1.0 - Interface moderne et optimisée
+Traducteur 1.1.1 - Interface moderne et optimisée
 """
 
 import json
@@ -17,11 +17,12 @@ import ctypes
 from html.parser import HTMLParser
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
+from urllib.parse import urlsplit
 
 import requests
 
 APP_NAME = "Traducteur"
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 APP_MUTEX_NAME = "TraducteurAppMutex-8E28A203-8A35-4F78-BE6B-FD0718E146AD"
 APP_SHUTDOWN_EVENT_NAME = "Local\\TraducteurShutdownEvent-8E28A203-8A35-4F78-BE6B-FD0718E146AD"
 START_HIDDEN = any(argument.lower() == "--hidden" for argument in sys.argv[1:])
@@ -95,6 +96,25 @@ MARKDOWN_LINK_PATTERN = re.compile(r"\[([^\]\n]+)\]\((https?://[^\s<>\)]+)\)")
 HEADING_STYLES = tuple(f"heading{level}" for level in range(1, 7))
 RICH_STYLE_NAMES = {"bold", "italic", *HEADING_STYLES}
 HEADING_FONT_SIZES = {1: 20, 2: 18, 3: 16, 4: 14, 5: 12, 6: 11}
+
+
+def is_safe_browser_url(url):
+    """N'autorise que les URL web absolues, sans caractères de contrôle."""
+    if not isinstance(url, str) or not url or any(
+        ord(char) <= 32 or ord(char) == 127 for char in url
+    ) or "\\" in url:
+        return False
+    try:
+        parsed = urlsplit(url)
+        return (
+            parsed.scheme.lower() in {"http", "https"}
+            and bool(parsed.hostname)
+            and parsed.username is None
+            and parsed.password is None
+            and (parsed.port is None or 1 <= parsed.port <= 65535)
+        )
+    except ValueError:
+        return False
 
 
 class ClipboardHtmlParser(HTMLParser):
@@ -2273,6 +2293,8 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
 
     def _add_rich_link_tag(self, widget, prefix, start, end, url):
         """Ajoute un lien cliquable sur un texte visible sans URL apparente."""
+        if not is_safe_browser_url(url):
+            return
         tag = f"{prefix}_rich_link_{self._link_tag_counter}"
         self._link_tag_counter += 1
         self._link_tag_urls[tag] = url
@@ -2285,6 +2307,11 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         for tag in widget.tag_names(index):
             url = self._link_tag_urls.get(tag)
             if url:
+                if not is_safe_browser_url(url):
+                    self.set_status_text(
+                        self.status_label, "Lien bloqué : seules les URL HTTP/HTTPS sont autorisées."
+                    )
+                    return "break"
                 try:
                     webbrowser.open(url)
                     self.set_status_text(self.status_label, f"Lien ouvert: {url}")

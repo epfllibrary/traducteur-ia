@@ -1,6 +1,6 @@
 @echo off
 pushd "%~dp0.."
-echo === Build Traducteur 1.1.0 pour Windows ===
+echo === Build Traducteur 1.1.1 pour Windows ===
 echo.
 
 REM Verifier Python
@@ -25,8 +25,17 @@ if not exist "requirements.txt" (
 )
 
 REM Installer les dependances
+python -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)"
+if errorlevel 1 (
+    echo ERREUR Python 3.11 minimum est requis
+    exit /b 1
+)
+python -m venv build\venv-windows
+if errorlevel 1 exit /b 1
+set "BUILD_PYTHON=build\venv-windows\Scripts\python.exe"
+
 echo Installation des dependances...
-pip install -r requirements.txt
+"%BUILD_PYTHON%" -m pip install --upgrade --upgrade-strategy eager -r requirements.txt
 if errorlevel 1 (
     echo ERREUR lors de l'installation des dependances
     pause
@@ -35,7 +44,7 @@ if errorlevel 1 (
 
 REM Installer PyInstaller
 echo Installation de PyInstaller...
-pip install pyinstaller
+"%BUILD_PYTHON%" -m pip install --upgrade pip setuptools pyinstaller pip-audit
 if errorlevel 1 (
     echo ERREUR lors de l'installation de PyInstaller
     pause
@@ -43,8 +52,15 @@ if errorlevel 1 (
 )
 
 REM Creer l'executable
+"%BUILD_PYTHON%" -m pip check
+if errorlevel 1 exit /b 1
+"%BUILD_PYTHON%" -m pip_audit
+if errorlevel 1 (
+    echo ERREUR audit des dependances : compilation annulee
+    exit /b 1
+)
 echo Creation de l'executable...
-pyinstaller --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
+"%BUILD_PYTHON%" -m PyInstaller --clean --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
 if errorlevel 1 (
     echo ERREUR lors de la creation de l'executable
     pause
@@ -53,10 +69,8 @@ if errorlevel 1 (
 
 REM Verifier le resultat
 if exist "bin/traducteur.exe" (
-    for %%A in ("bin/traducteur.exe") do set size=%%~zA
-    set /a size_mb=%size%/1048576
     echo OK Executable cree avec succes: bin/traducteur.exe
-    echo Taille: %size_mb% Mo
+    for %%A in ("bin/traducteur.exe") do echo Taille: %%~zA octets
     echo.
     echo Pour utiliser l'application:
     echo 1. Copiez .translator_config.example.json vers bin/.translator_config.json

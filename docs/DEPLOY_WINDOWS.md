@@ -20,7 +20,7 @@ pyinstaller --onefile --windowed --distpath bin --specpath build --name traducte
 ### Solution 2 : Utiliser Docker (Cross-compilation)
 ```bash
 # Depuis Linux/WSL
-docker run --rm -v $(pwd):/app -w /app python:3.9-windowsservercore pyinstaller --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
+docker run --rm -v $(pwd):/app -w /app python:3.11-windowsservercore pyinstaller --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
 ```
 
 ### Solution 3 : Machine virtuelle Windows
@@ -30,7 +30,7 @@ docker run --rm -v $(pwd):/app -w /app python:3.9-windowsservercore pyinstaller 
 
 ## Prérequis
 - Windows 10/11
-- Python 3.8+ installé
+- Python 3.11+ installé
 - Un serveur Ollama ou compatible OpenAI/vLLM, local ou distant
 
 ## Installation des dépendances

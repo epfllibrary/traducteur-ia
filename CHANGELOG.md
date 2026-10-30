@@ -1,5 +1,23 @@
 # Changelog - Traducteur
 
+## 1.1.1 (2026-10-30)
+
+### Sécurité
+
+- Relèvement des versions minimales de Pillow, pdfplumber, pdfminer.six, requests, certifi et idna pour intégrer les correctifs de sécurité.
+- Limitation des liens cliquables aux URL HTTP/HTTPS valides, avec un contrôle supplémentaire au clic.
+- Téléchargement d'une version précise d'Ollama et vérification de son empreinte SHA-256 avant exécution.
+- Validation des noms de modèles transmis à la commande Ollama par l'installateur.
+- Compilation Windows dans un environnement isolé, avec mise à jour des dépendances, contrôle de compatibilité et audit de vulnérabilités bloquant.
+
+### Compilation et validation
+
+- Python 3.11 minimum est désormais requis pour compiler ou exécuter l'application depuis les sources ; l'installateur reste autonome.
+- Ajout de tests de non-régression pour les liens et correction de l'affichage de la taille du binaire dans le script batch.
+- Documentation des limites du stockage local de la clé API et de la mise à jour de l'empreinte Ollama.
+
+---
+
 ## 1.1.0 (2026-08-24)
 
 ### Nouvelles fonctionnalités

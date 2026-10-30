@@ -5,7 +5,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 Set-Location $repoRoot
 
-Write-Host "=== Build Traducteur 1.1.0 pour Windows ===" -ForegroundColor Green
+Write-Host "=== Build Traducteur 1.1.1 pour Windows ===" -ForegroundColor Green
 
 # Verifier Python
 try {
@@ -18,8 +18,19 @@ try {
 }
 
 # Installer les dependances
+python -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "ERREUR Python 3.11 minimum est requis" -ForegroundColor Red
+    exit 1
+}
+
+# Isoler les paquets embarques dans l'executable.
+python -m venv build/venv-windows
+if ($LASTEXITCODE -ne 0) { exit 1 }
+$buildPython = Join-Path $repoRoot "build/venv-windows/Scripts/python.exe"
+
 Write-Host "Installation des dependances..." -ForegroundColor Blue
-pip install -r requirements.txt
+& $buildPython -m pip install --upgrade --upgrade-strategy eager -r requirements.txt
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERREUR lors de l'installation des dependances" -ForegroundColor Red
@@ -28,7 +39,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # Installer PyInstaller
 Write-Host "Installation de PyInstaller..." -ForegroundColor Blue
-pip install pyinstaller
+& $buildPython -m pip install --upgrade pip setuptools pyinstaller pip-audit
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERREUR lors de l'installation de PyInstaller" -ForegroundColor Red
@@ -36,8 +47,16 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Creer l'executable
+& $buildPython -m pip check
+if ($LASTEXITCODE -ne 0) { exit 1 }
+& $buildPython -m pip_audit
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "ERREUR audit des dependances : compilation annulee" -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "Creation de l'executable..." -ForegroundColor Blue
-pyinstaller --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
+& $buildPython -m PyInstaller --clean --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERREUR lors de la creation de l'executable" -ForegroundColor Red

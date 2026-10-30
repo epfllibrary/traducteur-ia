@@ -8,6 +8,12 @@
 
 ## Utilisation
 
+Python 3.11 minimum est requis pour les versions corrigées de Pillow. Les scripts
+créent un environnement isolé dans `build/venv-windows`, actualisent les dépendances,
+vérifient leur compatibilité avec `pip check` et lancent `pip-audit` sur les paquets
+installés avant PyInstaller. Une vulnérabilité connue ou un échec de l'audit bloque
+la compilation ; un accès Internet est nécessaire pour cette vérification.
+
 ### Sur Windows avec PowerShell (Recommandé)
 1. Copiez tous les fichiers du projet sur Windows
 2. Ouvrez PowerShell
@@ -59,6 +65,16 @@ Le profil **EPFL (Service RCP)** préconfigure `https://inference.rcp.epfl.ch/v1
 Le même `AppId` doit être conservé entre les versions : Inno Setup et la détection explicite reconnaissent ainsi l'installation existante. Les mutex empêchent plusieurs instances de l'application ou de l'installateur; l'installateur gère lui-même la fermeture de l'application.
 
 L'installateur et l'exécutable ne sont pas encore signés. Une alerte SmartScreen est donc possible jusqu'à l'ajout d'un certificat de signature de code.
+
+Le téléchargement automatique d'Ollama utilise une URL versionnée et vérifie son
+SHA-256 avant toute exécution. Pour actualiser Ollama, modifier ensemble
+`OllamaSetupURL` et `OllamaSetupSHA256` dans `installer/traducteur.iss`, à partir du
+fichier `sha256sum.txt` de la [publication officielle](https://github.com/ollama/ollama/releases).
+Ne pas remplacer l'URL par une adresse « latest » sans mettre à jour l'empreinte.
+
+Après une mise à jour de sécurité, reconstruire d'abord `traducteur.exe`, puis
+`traducteur-setup.exe` : modifier `requirements.txt` ne corrige pas les exécutables
+déjà générés ou installés.
 
 ## Utilisation de l'exécutable
 1. Copiez `.translator_config.example.json` en `bin/.translator_config.json` et adaptez le serveur et le modèle.

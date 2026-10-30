@@ -12,7 +12,7 @@ L'application Python doit être compilée sur Windows pour créer un exécutable
 
 ### Prérequis sur le PC Windows
 - Windows 10/11
-- Python 3.8+ installé
+- Python 3.11+ installé
 - Connexion internet
 
 ### Étapes

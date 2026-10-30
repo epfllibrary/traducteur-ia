@@ -1,6 +1,6 @@
-# Traducteur IA (1.1.0)
+# Traducteur IA (1.1.1)
 
-Traducteur IA 1.1.0 est une application Windows conçue pour traduire et réécrire des textes, ainsi que pour rédiger des courriels, depuis une interface graphique ou directement à partir du presse-papiers. Elle permet de travailler rapidement tout en préservant autant que possible la structure du contenu, notamment les liens, les titres, le gras et l'italique.
+Traducteur IA 1.1.1 est une application Windows conçue pour traduire et réécrire des textes, ainsi que pour rédiger des courriels, depuis une interface graphique ou directement à partir du presse-papiers. Elle permet de travailler rapidement tout en préservant autant que possible la structure du contenu, notamment les liens, les titres, le gras et l'italique.
 
 L'application s'appuie sur un grand modèle de langage (LLM) accessible par une API Ollama ou OpenAI/vLLM. Selon vos besoins, ce modèle peut être exécuté localement sur votre ordinateur ou hébergé sur un serveur distant. Le projet vise à offrir une interface de traduction pratique tout en laissant l'organisation ou l'utilisateur maîtriser l'emplacement et les conditions de traitement des données.
 
@@ -8,7 +8,7 @@ Traducteur est un logiciel libre sous licence GPLv3, conçu pour rester ouvert e
 
 ## 🖼️ Aperçu
 
-![Aperçu de l'interface de Traducteur IA 1.1.0](img/Exemple_interface.png)
+![Aperçu de l'interface de Traducteur IA 1.1.1](img/Exemple_interface.png)
 
 ## 🤖 Principe de fonctionnement
 
@@ -182,6 +182,10 @@ Tous les textes de prompt proviennent du fichier JSON : aucun prompt de repli n'
 
 Le JSON standard ne prenant pas en charge les commentaires, `_comment_languages` sert de note documentaire et est ignorée par l'application.
 Ne commitez pas `.translator_config.json` avec une vraie clé API ; ce fichier est ignoré par Git.
+La clé reste stockée en clair dans ce fichier : protégez aussi ses copies et ses
+sauvegardes. La configuration et ses modèles de prompts sont des fichiers locaux
+de confiance ; n'importez pas une configuration provenant d'une source inconnue.
+Les liens cliquables dans les textes n'ouvrent que des URL HTTP ou HTTPS.
 
 ### Import de fichiers
 - **Texte (.txt)** : Support natif UTF-8
