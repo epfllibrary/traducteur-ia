@@ -1,5 +1,17 @@
 # Changelog - Traducteur
 
+## 1.2.0 (2026-11-01)
+
+- Documentation utilisateur, technique et de déploiement alignée ; capture d’écran actualisée et préparation locale d’une release GitLab avec lien de téléchargement permanent.
+
+- Ajout de `Fichier > Ouvrir une configuration...`, affichage permanent du fichier actif et restauration du dernier fichier choisi au démarrage. Les textes sont conservés ; les traitements de l'ancienne configuration sont interrompus et leurs réponses tardives ignorées.
+- Ajout de `Affichage > Taille de l'interface` (80 à 150 %, 100 % correspondant au réglage Windows), appliqué immédiatement aux menus, aux contrôles et aux textes, et mémorisé sans remplacer le dernier modèle utilisé.
+- Fenêtre initiale agrandie jusqu'à 1100 × 720, adaptée à la mise à l'échelle et à l'espace disponible sur le moniteur Windows, hors barre des tâches. La barre de statut garde sa place en bas lors du redimensionnement et les messages longs ne masquent plus les compteurs.
+- Ajout de `Aide > À propos...` : auteur et profil EPFL, dépôt du projet, rappels d'utilisation et de confidentialité, licence complète consultable hors ligne dans l'exécutable.
+- Ajout d'un bouton `Effacer` dans l'en-tête du texte source, disponible dans les deux interfaces. Il vide les deux zones, remet les compteurs à zéro et annule l'affichage des réponses en cours. Les résultats précédents restent dans l'historique.
+- Ajout du menu `Aide > Utilisation et raccourcis...` et de son raccourci `F1`, avec deux onglets dédiés aux fonctions et aux raccourcis.
+- Déplacement du raccourci de copie du résultat vers `Ctrl+Alt+C` pour éviter le conflit avec le raccourci global `Ctrl+Maj+C` de traitement du presse-papiers.
+
 ## 1.1.1 (2026-10-30)
 
 ### Sécurité

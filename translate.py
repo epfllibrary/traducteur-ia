@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Traducteur 1.1.1 - Interface moderne et optimisée
+Traducteur 1.2.0 - Interface moderne et optimisée
 """
 
 import json
@@ -17,12 +17,17 @@ import ctypes
 from html.parser import HTMLParser
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
+from tkinter import font as tkfont
 from urllib.parse import urlsplit
 
 import requests
 
 APP_NAME = "Traducteur"
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.2.0"
+UI_SCALE_PERCENTAGES = (80, 90, 100, 110, 125, 150)
+APP_AUTHOR = "Sylvain Vuilleumier"
+AUTHOR_URL = "https://people.epfl.ch/sylvain.vuilleumier"
+PROJECT_URL = "https://gitlab.epfl.ch/sisb-public/id/traducteur"
 APP_MUTEX_NAME = "TraducteurAppMutex-8E28A203-8A35-4F78-BE6B-FD0718E146AD"
 APP_SHUTDOWN_EVENT_NAME = "Local\\TraducteurShutdownEvent-8E28A203-8A35-4F78-BE6B-FD0718E146AD"
 START_HIDDEN = any(argument.lower() == "--hidden" for argument in sys.argv[1:])
@@ -96,6 +101,15 @@ MARKDOWN_LINK_PATTERN = re.compile(r"\[([^\]\n]+)\]\((https?://[^\s<>\)]+)\)")
 HEADING_STYLES = tuple(f"heading{level}" for level in range(1, 7))
 RICH_STYLE_NAMES = {"bold", "italic", *HEADING_STYLES}
 HEADING_FONT_SIZES = {1: 20, 2: 18, 3: 16, 4: 14, 5: 12, 6: 11}
+APP_SHORTCUTS = (
+    ("<Control-o>", "Ctrl+O", "import_file", "Importer un fichier texte, Word ou PDF"),
+    ("<Control-s>", "Ctrl+S", "export_translation", "Exporter le résultat dans un fichier texte"),
+    ("<Control-comma>", "Ctrl+,", "edit_configuration", "Modifier la configuration"),
+    ("<Control-Return>", "Ctrl+Entrée", "translate", "Lancer le mode choisi ; arrêter la génération en cours"),
+    ("<Control-Alt-c>", "Ctrl+Alt+C", "copy_translation", "Copier le résultat complet"),
+    ("<Control-l>", "Ctrl+L", "lookup_selection", "Proposer des alternatives au passage sélectionné"),
+    ("<F1>", "F1", "show_help", "Afficher l'aide et les raccourcis"),
+)
 
 
 def is_safe_browser_url(url):
@@ -582,6 +596,24 @@ def _automatic_config_path():
     return app_dir / ".translator_config.json"
 
 
+def _startup_preferences_path():
+    return _automatic_config_path().with_name(".translator_preferences.json")
+
+
+def _last_config_path():
+    try:
+        preferences = json.loads(_startup_preferences_path().read_text(encoding="utf-8"))
+        value = preferences.get("last_config") if isinstance(preferences, dict) else None
+        return Path(value) if isinstance(value, str) and value.strip() else None
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def remember_config_path(path):
+    """Mémorise uniquement le chemin choisi, sans recopier les clés API."""
+    _write_json_atomically(_startup_preferences_path(), {"last_config": str(Path(path).resolve())})
+
+
 class ConfigError(Exception):
     """Erreur empêchant le démarrage avec la configuration demandée."""
 
@@ -597,13 +629,13 @@ def _choose_config_file(error_message=None):
             messagebox.showerror("Configuration invalide", error_message, parent=root)
         selected_path = filedialog.askopenfilename(
             parent=root,
-            title="Sélectionnez le fichier .translator_config.json",
+            title="Sélectionnez une configuration de Traducteur",
             filetypes=[("Configuration JSON", "*.json"), ("Tous les fichiers", "*.*")],
         )
         if not selected_path:
             messagebox.showerror(
                 "Configuration requise",
-                "Un fichier .translator_config.json valide est obligatoire pour démarrer l'application.",
+                "Un fichier de configuration JSON valide est obligatoire pour démarrer l'application.",
                 parent=root,
             )
             raise ConfigError("Sélection du fichier de configuration annulée.")
@@ -719,7 +751,7 @@ def _read_config(path):
     except Exception as exc:
         raise ConfigError(f"Impossible de lire la configuration {path} : {exc}") from exc
 
-    return _validate_config(user_config, path)
+    return _validate_config(user_config, Path(path).resolve())
 
 
 def load_config(config_path=None, ask_if_missing=True):
@@ -728,7 +760,7 @@ def load_config(config_path=None, ask_if_missing=True):
         path = Path(config_path)
     else:
         automatic_path = _automatic_config_path()
-        path = automatic_path if automatic_path.is_file() else None
+        path = _last_config_path() or (automatic_path if automatic_path.is_file() else None)
 
     while True:
         if path is None:
@@ -799,14 +831,22 @@ def _model_state_path(config):
     return Path(config["_config_source"]).with_name(".translator_state.json")
 
 
-def load_last_model(config):
-    """Charge le dernier modèle utilisé, sans rendre ce fichier obligatoire."""
+def _load_user_state(config):
     try:
         state = json.loads(_model_state_path(config).read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError):
-        return ""
-    if not isinstance(state, dict):
-        return ""
+        return {}
+    return state if isinstance(state, dict) else {}
+
+
+def load_ui_scale(config):
+    value = _load_user_state(config).get("ui_scale", 100)
+    return value if type(value) is int and value in UI_SCALE_PERCENTAGES else 100
+
+
+def load_last_model(config):
+    """Charge le dernier modèle utilisé, sans rendre ce fichier obligatoire."""
+    state = _load_user_state(config)
     state_server_url = str(state.get("server_url", "")).strip()
     state_api_format = str(state.get("api_format", "")).strip().lower()
     if state_server_url and state_server_url != config.get("server_url", ""):
@@ -823,7 +863,18 @@ def save_last_model(config, model):
     if not model:
         return
 
-    path = _model_state_path(config)
+    _save_user_state(config, last_model=model, server_url=config.get("server_url", ""),
+                     api_format=config["api_format"])
+
+
+def _save_user_state(config, **updates):
+    """Met à jour l'état sans effacer les autres préférences utilisateur."""
+    state = _load_user_state(config)
+    state.update(updates)
+    _write_json_atomically(_model_state_path(config), state)
+
+
+def _write_json_atomically(path, state):
     temporary_path = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -836,11 +887,7 @@ def save_last_model(config, model):
         ) as temporary_file:
             temporary_path = Path(temporary_file.name)
             json.dump(
-                {
-                    "last_model": model,
-                    "server_url": config.get("server_url", ""),
-                    "api_format": config["api_format"],
-                },
+                state,
                 temporary_file,
                 ensure_ascii=False,
                 indent=2,
@@ -953,13 +1000,14 @@ except ConfigError as exc:
     raise SystemExit(1) from exc
 
 
-def _request_headers():
+def _request_headers(config=None):
     """Construit les en-têtes HTTP optionnels pour les endpoints protégés."""
-    api_key = CONFIG.get("api_key", "")
+    config = CONFIG if config is None else config
+    api_key = config.get("api_key", "")
     if not api_key:
         return None
 
-    header_name = CONFIG.get("api_key_header") or "Authorization"
+    header_name = config.get("api_key_header") or "Authorization"
     if header_name.lower() == "authorization":
         return {header_name: f"Bearer {api_key}"}
     return {header_name: api_key}
@@ -973,20 +1021,21 @@ def _openai_endpoint_kind(url):
     return "chat"
 
 
-def _build_chat_payload(model, prompt, stream):
+def _build_chat_payload(model, prompt, stream, config=None):
     """Construit une requête adaptée au protocole et à l'endpoint configurés."""
-    api_format = CONFIG["api_format"]
+    config = CONFIG if config is None else config
+    api_format = config["api_format"]
     payload = {"model": model, "stream": stream}
     if (
         api_format == "openai"
-        and _openai_endpoint_kind(CONFIG.get("server_url")) == "completion"
+        and _openai_endpoint_kind(config.get("server_url")) == "completion"
     ):
         payload["prompt"] = prompt
     else:
         payload["messages"] = [{"role": "user", "content": prompt}]
 
     if api_format == "ollama":
-        payload["think"] = CONFIG.get("think", False)
+        payload["think"] = config.get("think", False)
     return payload
 
 
@@ -1052,8 +1101,9 @@ def _parse_chat_response(data, api_format):
     return message.get("content", "") if isinstance(message, dict) else ""
 
 
-def _raise_for_status_with_detail(response):
+def _raise_for_status_with_detail(response, config=None):
     """Conserve le détail JSON du serveur dans les erreurs affichées."""
+    config = CONFIG if config is None else config
     try:
         response.raise_for_status()
     except requests.HTTPError as exc:
@@ -1070,8 +1120,8 @@ def _raise_for_status_with_detail(response):
         message = f"HTTP {response.status_code}"
         if detail:
             message += f" : {detail[:500]}"
-        if response.status_code >= 500 and CONFIG["api_format"] == "openai":
-            endpoint_kind = _openai_endpoint_kind(CONFIG.get("server_url"))
+        if response.status_code >= 500 and config["api_format"] == "openai":
+            endpoint_kind = _openai_endpoint_kind(config.get("server_url"))
             field_name = "prompt" if endpoint_kind == "completion" else "messages"
             message += (
                 f" (requête OpenAI {endpoint_kind}, champ {field_name}; "
@@ -1082,13 +1132,21 @@ def _raise_for_status_with_detail(response):
 
 class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
     def __init__(self):
+        initial_ui_scale = load_ui_scale(CONFIG)
+        if CTK_SUPPORT:
+            # Fixer l'échelle avant la création évite le verrouillage temporaire
+            # des dimensions appliqué par CTk aux fenêtres déjà existantes.
+            ctk.set_widget_scaling(initial_ui_scale / 100)
+            ctk.set_window_scaling(initial_ui_scale / 100)
         super().__init__()
         if CTK_SUPPORT:
             ctk.set_appearance_mode("light")
             ctk.set_default_color_theme("blue")
 
         self.title(f"{APP_NAME} {APP_VERSION}")
-        self.geometry("1000x600")
+        self.ui_scale_percent = initial_ui_scale
+        self.ui_scale_var = tk.IntVar(value=self.ui_scale_percent)
+        self._configure_initial_geometry()
         self.resizable(True, True)
 
         # État
@@ -1115,6 +1173,11 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         self._last_clipboard_trigger_time = 0.0
         self.translation_thread = None
         self._config_editor = None
+        self._config_generation = object()
+        self._pending_lookups = []
+        self.config_name_var = tk.StringVar(value=Path(CONFIG["_config_source"]).name)
+        self._help_window = None
+        self._about_window = None
         self._config_file_signature = self._get_config_file_signature()
         self._shutdown_event_handle = _create_shutdown_event()
         self._ui_thread_id = threading.get_ident()
@@ -1136,9 +1199,11 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         self._mode_trace_id = self.mode.trace_add("write", self._update_action_button_label)
         self._update_action_button_label()
         self._setup_bindings()
+        self._rescale_native_ui()
         self._process_queue()
         self._poll_shutdown_event()
         self._show_config_status()
+        self._remember_active_config()
         self._watch_config_file()
         
         # La croix masque la fenêtre: l'app reste en veille pour le raccourci global
@@ -1161,14 +1226,133 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                 "Démarrage masqué ignoré: tray et raccourcis globaux indisponibles",
             )
 
+    def _screen_work_area(self):
+        """Zone disponible du moniteur courant, hors barre des tâches Windows."""
+        if sys.platform == "win32":
+            from ctypes import wintypes
+
+            class MonitorInfo(ctypes.Structure):
+                _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT),
+                            ("rcWork", wintypes.RECT), ("dwFlags", wintypes.DWORD)]
+
+            user32 = ctypes.windll.user32
+            user32.MonitorFromWindow.argtypes = (wintypes.HWND, wintypes.DWORD)
+            user32.MonitorFromWindow.restype = wintypes.HANDLE
+            user32.GetMonitorInfoW.argtypes = (wintypes.HANDLE, ctypes.POINTER(MonitorInfo))
+            user32.GetMonitorInfoW.restype = wintypes.BOOL
+            monitor = user32.MonitorFromWindow(self.winfo_id(), 2)
+            info = MonitorInfo()
+            info.cbSize = ctypes.sizeof(info)
+            if user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+                rect = info.rcWork
+                return rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top
+        return 0, 0, self.winfo_screenwidth(), self.winfo_screenheight()
+
+    def _configure_initial_geometry(self):
+        """Dimensionne la fenêtre en tenant compte du DPI et de l'écran disponible."""
+        left, top, screen_width, screen_height = self._screen_work_area()
+        scale = self._get_window_scaling() if CTK_SUPPORT else 1
+        # CTk attend des dimensions logiques, mais des positions en pixels.
+        # Garder une marge pour les bordures, le titre et le menu natifs.
+        native_scale = 1 if CTK_SUPPORT else self.ui_scale_percent / 100
+        width = max(1, min(round(1100 * native_scale), int(screen_width / scale) - 40))
+        height = max(1, min(round(720 * native_scale), int(screen_height / scale) - 100))
+        self.minsize(min(round(1000 * native_scale), width), min(round(560 * native_scale), height))
+        x = left + max(0, int((screen_width - width * scale) / 2))
+        y = top + max(0, int((screen_height - (height + 70) * scale) / 2))
+        self.geometry(f"{width}x{height}+{x}+{y}")
+
+    def _rescale_native_ui(self):
+        """Ajuste les textes Tk/ttk que CustomTkinter ne redimensionne pas."""
+        ratio = self.ui_scale_percent / 100
+        def scaled_font(value):
+            font = tkfont.Font(root=self, font=value).actual()
+            styles = [name for name, enabled in (
+                ("bold", font["weight"] == "bold"), ("italic", font["slant"] == "italic"),
+                ("underline", font["underline"]), ("overstrike", font["overstrike"])) if enabled]
+            return font["family"], max(1, round(font["size"] * ratio)), " ".join(styles)
+
+        def visit(parent):
+            for widget in parent.winfo_children():
+                native_font = isinstance(widget, (tk.Text, ttk.Label, ttk.Combobox)) or type(widget) is tk.Menu
+                if native_font and widget.cget("font"):
+                    if not hasattr(widget, "_ui_base_font"):
+                        widget._ui_base_font = widget.cget("font")
+                    widget.configure(font=scaled_font(widget._ui_base_font))
+                if isinstance(widget, tk.Text):
+                    if not hasattr(widget, "_ui_base_tag_fonts"):
+                        widget._ui_base_tag_fonts = {}
+                    for tag in widget.tag_names():
+                        font = widget.tag_cget(tag, "font")
+                        if font:
+                            base = widget._ui_base_tag_fonts.setdefault(tag, font)
+                            widget.tag_configure(tag, font=scaled_font(base))
+                visit(widget)
+        visit(self)
+        size = max(1, round(10 * self.ui_scale_percent / 100))
+        style = ttk.Style(self)
+        for name in ("TLabel", "TButton", "TCombobox", "TLabelframe.Label", "TNotebook.Tab"):
+            style.configure(name, font=("Arial", size))
+        style.configure("App.TMenubutton", font=("Arial", size),
+                        padding=(round(8 * ratio), round(4 * ratio)))
+
+    def set_ui_scale(self, percentage):
+        if percentage not in UI_SCALE_PERCENTAGES:
+            return
+        self.ui_scale_percent = percentage
+        self.ui_scale_var.set(percentage)
+        if CTK_SUPPORT:
+            ctk.set_widget_scaling(percentage / 100)
+            ctk.set_window_scaling(percentage / 100)
+        self._rescale_native_ui()
+        self._configure_initial_geometry()
+        try:
+            _save_user_state(CONFIG, ui_scale=percentage)
+        except OSError as exc:
+            messagebox.showwarning("Taille de l'interface",
+                                   f"Taille appliquée, mais impossible de mémoriser le choix : {exc}", parent=self)
+
     def _show_config_status(self):
         """Affiche rapidement quelle configuration est utilisée."""
+        self.config_name_var.set(f"Configuration : {Path(CONFIG['_config_source']).name}")
+        self.title(f"{APP_NAME} {APP_VERSION} — {Path(CONFIG['_config_source']).stem}")
         label = f"Config: {Path(CONFIG['_config_source']).name}"
         api_format = CONFIG["api_format"]
         self.set_status_text(
             self.status_label,
             f"{label} - API {api_format} - {CONFIG['server_url']}",
         )
+
+    def _remember_active_config(self):
+        try:
+            remember_config_path(CONFIG["_config_source"])
+        except OSError as exc:
+            self.set_status_text(self.status_label, f"Configuration active, mais choix non mémorisé : {exc}")
+
+    def open_configuration(self):
+        if self._config_editor is not None and self._config_editor.winfo_exists():
+            self._config_editor.lift()
+            messagebox.showinfo("Configuration", "Enregistrez ou fermez l'éditeur avant de changer de configuration.",
+                                parent=self._config_editor)
+            return
+        selected = filedialog.askopenfilename(
+            parent=self, title="Ouvrir une configuration de Traducteur",
+            initialdir=str(Path(CONFIG["_config_source"]).parent),
+            filetypes=[("Configuration JSON", "*.json"), ("Tous les fichiers", "*.*")],
+        )
+        if not selected:
+            return
+        try:
+            new_config = load_config(selected, ask_if_missing=False)
+        except ConfigError as exc:
+            messagebox.showerror("Configuration non chargée", f"{exc}\n\nLa configuration actuelle reste active.", parent=self)
+            return
+        self._apply_runtime_config(new_config, notify_model_errors=True)
+        self._remember_active_config()
+        try:
+            _save_user_state(CONFIG, ui_scale=self.ui_scale_percent)
+        except OSError:
+            pass  # Le changement reste utilisable avec un dossier en lecture seule.
 
     def edit_configuration(self):
         """Ouvre un éditeur JSON pour la configuration actuellement chargée."""
@@ -1267,10 +1451,18 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         popup.protocol("WM_DELETE_WINDOW", close_editor)
         popup.bind("<Control-s>", lambda event: save_editor())
         popup.bind("<Escape>", lambda event: close_editor())
+        self._rescale_native_ui()
         editor.focus_set()
 
     def _apply_runtime_config(self, new_config, notify_model_errors=False):
         """Applique une configuration validée sans redémarrer l'application."""
+        self.stop_event.set()
+        self.stop_event = threading.Event()
+        self.is_translating = False
+        self._config_generation = object()
+        for widget in self._pending_lookups:
+            self._set_text_widget_content(widget, "Recherche interrompue : la configuration a changé.")
+        self._pending_lookups.clear()
         selected_model = self._selected_model()
         same_backend = (
             CONFIG.get("server_url") == new_config.get("server_url")
@@ -1295,21 +1487,23 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         if str(CONFIG.get("models_url", "")).strip():
             threading.Thread(
                 target=self._reload_models,
-                args=(notify_model_errors,),
+                args=(notify_model_errors, dict(CONFIG), self._config_generation),
                 daemon=True,
             ).start()
 
-    def _reload_models(self, notify_errors=False):
+    def _reload_models(self, notify_errors=False, config=None, generation=None):
         """Recharge la liste facultative des modèles sans bloquer l'interface."""
+        config = dict(CONFIG) if config is None else config
+        generation = self._config_generation if generation is None else generation
+        def publish(callback, *args):
+            self.output_queue.put(("configuration", (generation, "call", (callback, args))))
         try:
-            models = self._fetch_models()
+            models = self._fetch_models(config)
         except Exception as exc:
-            models = [CONFIG["default_model"]] if CONFIG["default_model"] else []
+            models = [config["default_model"]] if config["default_model"] else []
             if notify_errors:
-                self.output_queue.put(
-                    ("call", (self._show_model_reload_error, (str(exc),)))
-                )
-        self.output_queue.put(("call", (self._set_available_models, (models,))))
+                publish(self._show_model_reload_error, str(exc))
+        publish(self._set_available_models, models)
 
     def _show_model_reload_error(self, error_message):
         """Signale un échec de rafraîchissement tout en gardant un repli utilisable."""
@@ -1518,12 +1712,17 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
             return
         self._last_clipboard_trigger_time = now
 
-        self._run_on_ui_thread(self._schedule_clipboard_translation)
+        self.output_queue.put(("configuration", (
+            self._config_generation, "call", (self._schedule_clipboard_translation, ()))))
+
+    def _after_for_configuration(self, delay, callback):
+        generation = self._config_generation
+        self.after(delay, lambda: callback() if generation is self._config_generation else None)
 
     def _schedule_clipboard_translation(self):
         """Attendre que le presse-papier soit à jour avant la traduction."""
         self.set_status_text(self.status_label, "Lecture du presse-papier...")
-        self.after(CLIPBOARD_SETTLE_DELAY_MS, self._load_clipboard_and_translate)
+        self._after_for_configuration(CLIPBOARD_SETTLE_DELAY_MS, self._load_clipboard_and_translate)
 
     def _load_clipboard_and_translate(self):
         """Charger le presse-papier, afficher la fenêtre, puis lancer la traduction."""
@@ -1550,7 +1749,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                 self._schedule_link_refresh()
                 self._show_window_now()
                 self.set_status_text(self.status_label, "Traduction automatique...")
-                self.after(AUTO_TRANSLATE_DELAY_MS, self._start_clipboard_translation)
+                self._after_for_configuration(AUTO_TRANSLATE_DELAY_MS, self._start_clipboard_translation)
             except Exception as e:
                 messagebox.showerror("Erreur", f"Impossible d'accéder au presse-papier:\n{str(e)}")
 
@@ -1563,7 +1762,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         if self.is_translating:
             self.stop_event.set()
             self.set_status_text(self.status_label, "Arrêt de la traduction précédente...")
-            self.after(200, self._start_clipboard_translation)
+            self._after_for_configuration(200, self._start_clipboard_translation)
             return
         self.translate()
 
@@ -1666,6 +1865,14 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         try:
             while True:
                 msg_type, data = self.output_queue.get_nowait()
+                if msg_type == "translation":
+                    request_stop_event, msg_type, data = data
+                    if request_stop_event is not self.stop_event:
+                        continue
+                elif msg_type == "configuration":
+                    generation, msg_type, data = data
+                    if generation is not self._config_generation:
+                        continue
                 if msg_type == "insert":
                     self.target_text.insert(tk.END, data)
                     self.target_text.see(tk.END)
@@ -1673,7 +1880,10 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                 elif msg_type == "status":
                     self.set_status_text(self.status_label, data)
                 elif msg_type == "time":
-                    self.set_status_text(self.time_label, data)
+                    self.translation_time = data
+                    self.set_status_text(self.time_label, f"Temps: {data:.1f}s")
+                elif msg_type == "done":
+                    self.is_translating = False
                 elif msg_type == "call":
                     callback, args = data
                     callback(*args)
@@ -1691,20 +1901,21 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         except Exception:
             return [CONFIG["default_model"]] if CONFIG["default_model"] else []
 
-    def _fetch_models(self):
+    def _fetch_models(self, config=None):
         """Charge la liste distante ou lève une erreur détaillée."""
-        models_url = str(CONFIG.get("models_url", "")).strip()
+        config = CONFIG if config is None else config
+        models_url = str(config.get("models_url", "")).strip()
         if not models_url:
-            return [CONFIG["default_model"]] if CONFIG["default_model"] else []
+            return [config["default_model"]] if config["default_model"] else []
         response = requests.get(
             models_url,
-            headers=_request_headers(),
+            headers=_request_headers(config),
             timeout=10,
         )
-        _raise_for_status_with_detail(response)
+        _raise_for_status_with_detail(response, config)
         models = _parse_models_response(
             response.json(),
-            CONFIG["api_format"],
+            config["api_format"],
         )
         if not models:
             raise RuntimeError(
@@ -1719,15 +1930,16 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         else:
             self._setup_ttk_ui()
 
-    def _setup_ctk_ui(self):
-        """Interface CustomTkinter moderne"""
-        # Menu
-        menubar = tk.Menu(self)
-        self.config(menu=menubar)
+    def _setup_menu(self):
+        """Menus communs aux deux interfaces."""
+        menubar = tk.Menu(self, tearoff=0)
+        self._menubar = menubar
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Fichier", menu=file_menu)
         file_menu.add_command(label="Importer", command=self.import_file, accelerator="Ctrl+O")
         file_menu.add_command(label="Exporter", command=self.export_translation, accelerator="Ctrl+S")
+        file_menu.add_separator()
+        file_menu.add_command(label="Ouvrir une configuration...", command=self.open_configuration)
         file_menu.add_command(
             label="Modifier la configuration...",
             command=self.edit_configuration,
@@ -1738,6 +1950,237 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         file_menu.add_cascade(label="Historique", menu=self.history_menu)
         file_menu.add_separator()
         file_menu.add_command(label="Quitter", command=self._on_closing)
+
+        view_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Affichage", menu=view_menu)
+        size_menu = tk.Menu(view_menu, tearoff=0)
+        view_menu.add_cascade(label="Taille de l'interface", menu=size_menu)
+        for percentage in UI_SCALE_PERCENTAGES:
+            size_menu.add_radiobutton(
+                label=f"{percentage} %" + (" (réglage Windows)" if percentage == 100 else ""),
+                variable=self.ui_scale_var, value=percentage,
+                command=lambda value=percentage: self.set_ui_scale(value),
+            )
+
+        help_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Aide", menu=help_menu)
+        help_menu.add_command(
+            label="Utilisation et raccourcis...", command=self.show_help, accelerator="F1"
+        )
+        help_menu.add_separator()
+        help_menu.add_command(label="À propos...", command=self.show_about)
+
+        # Les titres du menu natif Windows ignorent la police de tk.Menu.
+        # Des boutons intégrés permettent de les agrandir avec l'application.
+        menu_frame = ttk.Frame(self)
+        menu_frame.pack(fill=tk.X, padx=15, pady=(6, 0))
+        self._menu_buttons = []
+        for label, menu, underline in (("Fichier", file_menu, 0),
+                                       ("Affichage", view_menu, 0), ("Aide", help_menu, 1)):
+            button = ttk.Menubutton(menu_frame, text=label, menu=menu,
+                                    style="App.TMenubutton", underline=underline)
+            button.pack(side=tk.LEFT, padx=(0, 4))
+            self._menu_buttons.append(button)
+        self.bind("<F10>", lambda event: self._menu_buttons[0].focus_set())
+        ttk.Label(menu_frame, textvariable=self.config_name_var, anchor=tk.E).pack(
+            side=tk.RIGHT, fill=tk.X, expand=True, padx=(15, 5))
+
+    def show_about(self):
+        """Présente l'auteur, les conditions d'utilisation et la licence embarquée."""
+        if self._about_window is not None and self._about_window.winfo_exists():
+            self._about_window.deiconify()
+            self._about_window.lift()
+            self._about_window.focus_set()
+            return
+
+        popup = tk.Toplevel(self)
+        self._about_window = popup
+        popup.title(f"À propos de {APP_NAME}")
+        popup.geometry("720x580")
+        popup.minsize(560, 420)
+        popup.transient(self)
+        container = ttk.Frame(popup, padding=18)
+        container.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(container, text=APP_NAME, font=("Arial", 20, "bold")).pack(anchor=tk.W)
+        ttk.Label(container, text=f"Version {APP_VERSION} · © 2026 {APP_AUTHOR}").pack(anchor=tk.W, pady=(4, 12))
+
+        def open_link(url):
+            if not is_safe_browser_url(url):
+                return
+            try:
+                if not webbrowser.open(url):
+                    raise RuntimeError("Aucun navigateur disponible.")
+            except Exception as exc:
+                messagebox.showerror("Ouvrir le lien", f"Impossible d'ouvrir {url}\n\n{exc}", parent=popup)
+
+        links = ttk.Frame(container)
+        links.pack(fill=tk.X, pady=(0, 12))
+        ttk.Button(links, text="Profil EPFL de l'auteur", command=lambda: open_link(AUTHOR_URL)).pack(side=tk.LEFT)
+        ttk.Button(links, text="Code source du projet", command=lambda: open_link(PROJECT_URL)).pack(side=tk.LEFT, padx=(8, 0))
+
+        notebook = ttk.Notebook(container)
+        notebook.pack(fill=tk.BOTH, expand=True, pady=(0, 12))
+        presentation = (
+            "Traduire, réécrire et rédiger\n\n"
+            "Traducteur permet de traduire et de réécrire des textes, de préparer des e-mails "
+            "et de rechercher des formulations alternatives avec un modèle de langage.\n\n"
+            "Auteur\n\n"
+            f"Application développée par {APP_AUTHOR}. Le bouton ci-dessus donne accès à son profil EPFL.\n\n"
+            "Licence et utilisation\n\n"
+            "Ce logiciel est libre, distribué sous licence GNU GPL version 3 ou ultérieure. "
+            "Les conditions complètes figurent dans l'onglet Licence. Il est fourni sans garantie.\n\n"
+            "Vérifier les résultats\n\n"
+            "Les réponses sont produites par le modèle choisi et peuvent contenir des erreurs. "
+            "Relisez les traductions et les reformulations avant de les utiliser ou de les diffuser.\n\n"
+            "Confidentialité des textes\n\n"
+            "Avec un modèle exécuté localement, les textes sont traités sur votre ordinateur. "
+            "Avec un serveur distant, ils sont envoyés au service configuré, dont les conditions "
+            "de traitement des données s'appliquent. Traducteur n'anonymise pas automatiquement "
+            "les textes : retirez les informations sensibles avant un envoi non autorisé."
+        )
+        try:
+            license_text = Path(__file__).resolve().with_name("LICENSE").read_text(encoding="utf-8")
+        except OSError:
+            license_text = (
+                "Le texte de la licence n'est pas disponible dans cette installation.\n\n"
+                "Consultez le fichier LICENSE dans le dépôt, accessible avec le bouton Code source du projet."
+            )
+        for title, content in (("Présentation et utilisation", presentation), ("Licence", license_text)):
+            page = ttk.Frame(notebook, padding=8)
+            notebook.add(page, text=title)
+            text = tk.Text(page, wrap=tk.WORD, font=("Arial", 11), padx=10, pady=10,
+                           relief=tk.FLAT, background="white", foreground="#333333")
+            scrollbar = ttk.Scrollbar(page, command=text.yview)
+            text.configure(yscrollcommand=scrollbar.set)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            text.pack(fill=tk.BOTH, expand=True)
+            text.insert("1.0", content)
+            if title == "Présentation et utilisation":
+                text.tag_configure("heading", font=("Arial", 11, "bold"))
+                for heading in ("Traduire, réécrire et rédiger", "Auteur", "Licence et utilisation",
+                                "Vérifier les résultats", "Confidentialité des textes"):
+                    offset = content.index(heading + "\n")
+                    text.tag_add("heading", f"1.0+{offset}c", f"1.0+{offset + len(heading)}c")
+            text.configure(state=tk.DISABLED)
+
+        def close_about(event=None):
+            self._about_window = None
+            popup.destroy()
+            return "break"
+
+        ttk.Button(container, text="Fermer", command=close_about).pack(side=tk.BOTTOM, anchor=tk.E, before=notebook)
+        popup.protocol("WM_DELETE_WINDOW", close_about)
+        popup.bind("<Escape>", close_about)
+        self._rescale_native_ui()
+        popup.focus_set()
+
+    def show_help(self):
+        """Affiche une aide locale, consultable pendant l'utilisation."""
+        if self._help_window is not None and self._help_window.winfo_exists():
+            self._help_window.deiconify()
+            self._help_window.lift()
+            self._help_window.focus_set()
+            return
+
+        popup = tk.Toplevel(self)
+        self._help_window = popup
+        popup.title(f"Aide — {APP_NAME} {APP_VERSION}")
+        popup.geometry("780x620")
+        popup.minsize(560, 400)
+        popup.transient(self)
+
+        container = ttk.Frame(popup, padding=16)
+        container.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(container, text="Bien utiliser Traducteur", font=("Arial", 16, "bold")).pack(anchor=tk.W)
+        notebook = ttk.Notebook(container)
+        notebook.pack(fill=tk.BOTH, expand=True, pady=(12, 10))
+
+        usage = (
+            ("Traduire, réécrire ou rédiger un e-mail",
+             "Collez ou saisissez votre texte à gauche. Choisissez le mode, le modèle et les langues, "
+             "puis cliquez sur le bouton du mode choisi ou appuyez sur Ctrl+Entrée. "
+             "Le résultat apparaît progressivement à droite. Une nouvelle pression sur le bouton "
+             "ou sur Ctrl+Entrée demande l'arrêt de la génération en cours."),
+            ("Gérer les deux zones de texte",
+             "Effacer vide les deux zones, remet les compteurs à zéro et demande l'arrêt de la génération "
+             "en cours. Les résultats précédents restent accessibles dans l'historique. "
+             "Copier envoie le résultat complet dans le presse-papiers. Le bouton <> échange les langues "
+             "et, si un résultat existe, le reprend comme texte source et relance la traduction. "
+             "Les liens, titres, gras et italiques sont pris en charge lors du collage de texte enrichi."),
+            ("Trouver des alternatives",
+             "Sélectionnez un passage dans l'une des zones, puis utilisez Ctrl+L ou le clic droit. "
+             "Le bouton Alternatives apparaît aussi lors d'une sélection à droite. Les propositions "
+             "s'affichent dans une fenêtre séparée ; le texte n'est pas remplacé automatiquement."),
+            ("Adapter la taille de l'interface",
+             "Affichage > Taille de l'interface permet de choisir un agrandissement de 80 à 150 %. "
+             "100 % correspond à la taille normale avec la mise à l'échelle Windows. "
+             "Le choix s'applique immédiatement, conserve les textes et est mémorisé au prochain lancement."),
+            ("Importer, exporter et retrouver un résultat",
+             "Le menu Fichier permet d'importer des fichiers .txt, .docx et .pdf et d'exporter le résultat "
+             "en .txt. Les PDF doivent contenir du texte extractible : il n'y a pas de reconnaissance "
+             "des pages scannées. Fichier > Historique permet de reprendre un résultat récent de la session."),
+            ("Utiliser le presse-papiers depuis une autre application",
+             "Copiez un texte, puis utilisez Ctrl+Maj+C, ou appuyez deux fois rapidement sur Ctrl+C. "
+             "Traducteur affiche sa fenêtre, récupère le presse-papiers et lance le mode choisi. "
+             "L'application doit rester lancée et les raccourcis globaux doivent être disponibles."),
+            ("Configurer le modèle et quitter l'application",
+             "Fichier > Ouvrir une configuration permet de choisir un autre fichier JSON, sans perdre "
+             "les textes affichés. Le nom du fichier actif reste visible en haut et le choix est mémorisé. "
+             "Les traitements en cours sont interrompus lors du changement. "
+             "Fichier > Modifier la configuration permet de régler le serveur, les langues et les "
+             "consignes des différents modes. Un serveur Ollama ou compatible OpenAI est nécessaire. "
+             "Avec un serveur distant, le texte lui est envoyé pour traitement. "
+             "La croix de la fenêtre masque l'application ; pour la fermer complètement, utilisez "
+             "Fichier > Quitter ou Quitter dans le menu de l'icône près de l'horloge."),
+        )
+        shortcuts = (
+            ("Dans la fenêtre principale", "\n".join(
+                f"{label} — {description}" for _, label, _, description in APP_SHORTCUTS
+            )),
+            ("Édition du texte",
+             "Ctrl+C — Copier la sélection\nCtrl+X — Couper la sélection\n"
+             "Ctrl+V ou Maj+Inser — Coller le texte et sa mise en forme disponible\n"
+             "Ctrl+Z — Annuler une modification du texte source\n"
+             + ("Ctrl+Y" if os.name == "nt" else "Ctrl+Maj+Z")
+             + " — Rétablir une modification du texte source"),
+            ("Depuis toute application, si Traducteur est lancé",
+             "Ctrl+Maj+C — Afficher Traducteur et traiter le presse-papiers\n"
+             "Double Ctrl+C — Copier puis traiter le presse-papiers (deux pressions en moins de 0,6 seconde)\n\n"
+             + ("Les raccourcis globaux sont pris en charge dans cette session."
+                if KEYBOARD_SUPPORT else "Les raccourcis globaux ne sont pas disponibles dans cette session.")),
+            ("Dans les fenêtres secondaires",
+             "Éditeur de configuration : Ctrl+S pour enregistrer, Échap pour fermer\n"
+             "Aide : Échap pour fermer\n\nMaj désigne la touche Shift."),
+        )
+        for title, sections in (("Utilisation", usage), ("Raccourcis", shortcuts)):
+            page = ttk.Frame(notebook, padding=10)
+            notebook.add(page, text=title)
+            text = tk.Text(page, wrap=tk.WORD, font=("Arial", 11), padx=10, pady=8,
+                           relief=tk.FLAT, background="white", foreground="#333333")
+            scrollbar = ttk.Scrollbar(page, command=text.yview)
+            text.configure(yscrollcommand=scrollbar.set)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            text.pack(fill=tk.BOTH, expand=True)
+            text.tag_configure("heading", font=("Arial", 12, "bold"), spacing1=10, spacing3=6)
+            for heading, body in sections:
+                text.insert(tk.END, heading + "\n", "heading")
+                text.insert(tk.END, body + "\n\n")
+            text.configure(state=tk.DISABLED)
+
+        def close_help(event=None):
+            self._help_window = None
+            popup.destroy()
+            return "break"
+
+        ttk.Button(container, text="Fermer", command=close_help).pack(side=tk.RIGHT)
+        popup.protocol("WM_DELETE_WINDOW", close_help)
+        popup.bind("<Escape>", close_help)
+        self._rescale_native_ui()
+        popup.focus_set()
+
+    def _setup_ctk_ui(self):
+        """Interface CustomTkinter moderne"""
+        self._setup_menu()
 
         # Frame principal
         main_frame = ctk.CTkFrame(self, fg_color="#ffffff", corner_radius=10)
@@ -1815,7 +2258,15 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
 
         # Source
         source_frame = ctk.CTkFrame(paned, fg_color="#f8f9fa", corner_radius=8)
-        ctk.CTkLabel(source_frame, text="Texte source", font=ctk.CTkFont(size=12)).pack(anchor=tk.W, padx=10, pady=(10, 5))
+        source_header = ctk.CTkFrame(source_frame, fg_color="transparent")
+        source_header.pack(fill=tk.X, padx=10, pady=(10, 5))
+        ctk.CTkLabel(source_header, text="Texte source", font=ctk.CTkFont(size=12)).pack(side=tk.LEFT)
+        self.clear_source_button = ctk.CTkButton(
+            source_header, text="Effacer", command=self.clear_text,
+            width=62, height=26, fg_color="#6c757d", hover_color="#5a6268",
+            font=ctk.CTkFont(size=11),
+        )
+        self.clear_source_button.pack(side=tk.RIGHT)
         self.source_text = tk.Text(source_frame, wrap=tk.WORD, undo=True, font=("Arial", 11),
                                   bg="#ffffff", fg="#333333", insertbackground="#333333",
                                   relief="flat", padx=10, pady=10)
@@ -1857,12 +2308,12 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
 
         # Barre de statut
         status_frame = ctk.CTkFrame(main_frame, fg_color="#e9ecef", height=35, corner_radius=6)
-        status_frame.pack(fill=tk.X, pady=(10, 0))
+        # Réserver le bas avant que les zones de texte prennent l'espace restant.
+        status_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0), before=paned)
         status_frame.pack_propagate(False)
 
         self.status_label = ctk.CTkLabel(status_frame, text="Prêt",
                                         font=ctk.CTkFont(size=11), text_color="#495057")
-        self.status_label.pack(side=tk.LEFT, padx=15, pady=2)
 
         metrics_frame = ctk.CTkFrame(status_frame, fg_color="transparent")
         metrics_frame.pack(side=tk.RIGHT, padx=15)
@@ -1874,6 +2325,9 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         self.time_label = ctk.CTkLabel(metrics_frame, text="Temps: 0.0s",
                                       font=ctk.CTkFont(size=11), text_color="#495057")
         self.time_label.pack(side=tk.LEFT)
+        # Les compteurs gardent leur place même si le message est très long.
+        self.status_label.configure(anchor=tk.W)
+        self.status_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=15, pady=2)
 
     def _setup_ttk_ui(self):
         """Interface Tkinter classique (fallback)"""
@@ -1882,23 +2336,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         style.configure("TCombobox", padding=5, font=("Arial", 10))
         style.configure("TLabel", font=("Arial", 10))
 
-        # Menu
-        menubar = tk.Menu(self)
-        self.config(menu=menubar)
-        file_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Fichier", menu=file_menu)
-        file_menu.add_command(label="Importer", command=self.import_file, accelerator="Ctrl+O")
-        file_menu.add_command(label="Exporter", command=self.export_translation, accelerator="Ctrl+S")
-        file_menu.add_command(
-            label="Modifier la configuration...",
-            command=self.edit_configuration,
-            accelerator="Ctrl+,",
-        )
-        file_menu.add_separator()
-        self.history_menu = tk.Menu(file_menu, tearoff=0)
-        file_menu.add_cascade(label="Historique", menu=self.history_menu)
-        file_menu.add_separator()
-        file_menu.add_command(label="Quitter", command=self._on_closing)
+        self._setup_menu()
 
         # Frame principal
         main_frame = ttk.Frame(self)
@@ -1944,6 +2382,10 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         paned.pack(fill=tk.BOTH, expand=True)
 
         source_frame = ttk.LabelFrame(paned, text="Texte source")
+        source_header = ttk.Frame(source_frame)
+        source_header.pack(fill=tk.X, padx=4, pady=(0, 4))
+        self.clear_source_button = ttk.Button(source_header, text="Effacer", command=self.clear_text)
+        self.clear_source_button.pack(side=tk.RIGHT)
         self.source_text = tk.Text(source_frame, wrap=tk.WORD, undo=True, font=("Arial", 11))
         scrollbar_source = ttk.Scrollbar(source_frame, command=self.source_text.yview)
         self.source_text.config(yscrollcommand=scrollbar_source.set)
@@ -1970,26 +2412,25 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
 
         # Barre de statut
         status_frame = ttk.Frame(main_frame, relief="sunken")
-        status_frame.pack(fill=tk.X, pady=(10, 0))
+        status_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0), before=paned)
 
         self.status_label = ttk.Label(status_frame, text="Prêt")
-        self.status_label.pack(side=tk.LEFT)
 
         self.word_label = ttk.Label(status_frame, text="Mots: 0")
         self.word_label.pack(side=tk.RIGHT, padx=(0, 10))
 
         self.time_label = ttk.Label(status_frame, text="Temps: 0.0s")
         self.time_label.pack(side=tk.RIGHT)
+        self.status_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
     def _setup_bindings(self):
         """Configure les raccourcis clavier"""
         self._setup_link_tags()
-        self.bind('<Control-o>', lambda e: self.import_file())
-        self.bind('<Control-s>', lambda e: self.export_translation())
-        self.bind('<Control-comma>', lambda e: self.edit_configuration())
-        self.bind('<Control-Return>', lambda e: self.translate())
-        self.bind('<Control-Shift-C>', lambda e: self.copy_translation())
-        self.bind('<Control-l>', lambda e: self.lookup_selection())
+        for sequence, _, method, _ in APP_SHORTCUTS:
+            def invoke(event, action=getattr(self, method)):
+                action()
+                return "break"
+            self.bind(sequence, invoke)
         self.source_text.bind('<KeyRelease>', self.update_word_count)
         self.source_text.bind('<ButtonRelease-1>', self._schedule_selection_action_update)
         self.source_text.bind('<KeyRelease>', self._schedule_selection_action_update, add="+")
@@ -2361,7 +2802,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
 
     def _show_text_context_menu(self, event):
         """Affiche les actions contextuelles sur la sélection."""
-        menu = tk.Menu(self, tearoff=0)
+        menu = tk.Menu(self, tearoff=0, font=("Arial", round(10 * self.ui_scale_percent / 100)))
         menu.add_command(label="Alternatives", command=self.lookup_selection)
         try:
             menu.tk_popup(event.x_root, event.y_root)
@@ -2402,13 +2843,13 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
             self.update_word_count()
             self._schedule_link_refresh()
             self.set_status_text(self.status_label, "Traduction reprise comme source...")
-            self.after(150, self._translate_after_swap)
+            self._after_for_configuration(150, self._translate_after_swap)
 
     def _translate_after_swap(self):
         """Relance automatiquement la traduction après une inversion avec texte repris."""
         if self.is_translating and self.translation_thread and self.translation_thread.is_alive():
             self.stop_event.set()
-            self.after(150, self._translate_after_swap)
+            self._after_for_configuration(150, self._translate_after_swap)
             return
         if self.is_translating:
             self.is_translating = False
@@ -2436,7 +2877,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         self._remember_last_model(model)
 
         self.is_translating = True
-        self.stop_event.clear()
+        self.stop_event = threading.Event()
         self.start_time = time.time()
         self.target_text.delete("1.0", tk.END)
         self._hide_target_alternatives_button()
@@ -2448,7 +2889,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         target_lang = self.target_lang.get()
         self.translation_thread = threading.Thread(
             target=self._translate_thread,
-            args=(prompt_text, display_text, mode, source_lang, target_lang, model),
+            args=(prompt_text, display_text, mode, source_lang, target_lang, model, self.stop_event, dict(CONFIG)),
         )
         self.translation_thread.daemon = True
         self.translation_thread.start()
@@ -2463,66 +2904,77 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         if hasattr(self, "action_button"):
             self.action_button.configure(text=self.mode.get())
 
-    def _build_prompt(self, mode, source_lang, target_lang, text, extra_values=None):
+    def _build_prompt(self, mode, source_lang, target_lang, text, extra_values=None, config=None):
         """Construit le prompt depuis le modèle défini en configuration."""
-        template = CONFIG["prompts"][mode]
+        config = CONFIG if config is None else config
+        template = config["prompts"][mode]
         values = PromptValues(
             PROMPT_VARIABLES,
-            source_language=CONFIG["languages"].get(source_lang, source_lang),
-            target_language=CONFIG["languages"].get(target_lang, target_lang),
+            source_language=config["languages"].get(source_lang, source_lang),
+            target_language=config["languages"].get(target_lang, target_lang),
             text=text,
         )
         if extra_values:
             values.update(extra_values)
         return template.format_map(values)
 
-    def _translate_thread(self, prompt_text, display_text, mode, source_lang, target_lang, model):
+    def _translate_thread(self, prompt_text, display_text, mode, source_lang, target_lang, model, stop_event, config=None):
         """Thread de traduction"""
-        try:
-            prompt = self._build_prompt(mode, source_lang, target_lang, prompt_text)
+        started_at = time.time()
+        response = None
+        config = dict(CONFIG) if config is None else config
 
-            api_format = CONFIG["api_format"]
-            payload = _build_chat_payload(model, prompt, stream=True)
+        def publish(msg_type, data):
+            self.output_queue.put(("translation", (stop_event, msg_type, data)))
+
+        try:
+            if stop_event.is_set():
+                return
+            prompt = self._build_prompt(mode, source_lang, target_lang, prompt_text, config=config)
+
+            api_format = config["api_format"]
+            payload = _build_chat_payload(model, prompt, stream=True, config=config)
             response = requests.post(
-                CONFIG["server_url"],
+                config["server_url"],
                 json=payload,
-                headers=_request_headers(),
+                headers=_request_headers(config),
                 stream=True,
                 timeout=300,
             )
-            _raise_for_status_with_detail(response)
+            _raise_for_status_with_detail(response, config)
 
             full_response = ""
 
             for line in response.iter_lines():
-                if self.stop_event.is_set():
+                if stop_event.is_set():
                     break
                 if line:
                     try:
                         chunk = _parse_stream_chunk(line, api_format)
                         if chunk:
                             full_response += chunk
-                            self.output_queue.put(("insert", chunk))
+                            publish("insert", chunk)
                     except (json.JSONDecodeError, UnicodeDecodeError):
                         continue
 
-            self.translation_time = time.time() - self.start_time
-            self.output_queue.put(("time", f"Temps: {self.translation_time:.1f}s"))
+            publish("time", time.time() - started_at)
 
             if full_response.strip():
-                self.output_queue.put(("call", (self._render_markdown_links_in_widget, (self.target_text,))))
-                self.output_queue.put(("history", {
+                publish("call", (self._render_markdown_links_in_widget, (self.target_text,)))
+                publish("history", {
                     'source': display_text, 'source_markdown': prompt_text, 'target': full_response,
                     'source_lang': source_lang, 'target_lang': target_lang,
                     'mode': mode, 'timestamp': time.time()
-                }))
+                })
 
-            self.output_queue.put(("status", "Traduction terminée"))
+            publish("status", "Traduction terminée")
 
         except Exception as e:
-            self.output_queue.put(("status", f"Erreur: {str(e)}"))
+            publish("status", f"Erreur: {str(e)}")
         finally:
-            self.is_translating = False
+            if response is not None:
+                response.close()
+            publish("done", None)
 
     def _get_selected_text(self):
         """Retourne la sélection active dans la source ou la traduction."""
@@ -2564,6 +3016,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
             return
         self._remember_last_model(model)
         result_text = self._open_lookup_window(selection, area)
+        self._pending_lookups.append(result_text)
         source_text = self.source_text.get("1.0", tk.END).strip()
         target_text = self.target_text.get("1.0", tk.END).strip()
         source_lang = self.source_lang.get()
@@ -2572,7 +3025,8 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
 
         lookup_thread = threading.Thread(
             target=self._lookup_thread,
-            args=(selection, source_text, target_text, source_lang, target_lang, model, result_text),
+            args=(selection, source_text, target_text, source_lang, target_lang, model, result_text,
+                  dict(CONFIG), self._config_generation),
             daemon=True,
         )
         lookup_thread.start()
@@ -2610,6 +3064,7 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         button_frame.pack(fill=tk.X, pady=(10, 0))
         ttk.Button(button_frame, text="Fermer", command=popup.destroy).pack(side=tk.RIGHT)
 
+        self._rescale_native_ui()
         return result_text
 
     def _set_text_widget_content(self, widget, content):
@@ -2631,9 +3086,16 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
         target_lang,
         model,
         result_text,
+        config,
+        generation,
     ):
         """Thread de recherche d'alternatives contextuelles."""
+        response = None
+        def publish(kind, data):
+            self.output_queue.put(("configuration", (generation, kind, data)))
         try:
+            if generation is not self._config_generation:
+                return
             prompt = self._build_prompt(
                 "lookup",
                 source_lang,
@@ -2643,28 +3105,37 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                     "translation": target_text,
                     "selection": selection,
                 },
+                config=config,
             )
 
-            api_format = CONFIG["api_format"]
-            payload = _build_chat_payload(model, prompt, stream=False)
+            api_format = config["api_format"]
+            payload = _build_chat_payload(model, prompt, stream=False, config=config)
             response = requests.post(
-                CONFIG["server_url"],
+                config["server_url"],
                 json=payload,
-                headers=_request_headers(),
+                headers=_request_headers(config),
                 timeout=120,
             )
-            _raise_for_status_with_detail(response)
+            _raise_for_status_with_detail(response, config)
             data = response.json()
             content = _parse_chat_response(data, api_format).strip()
             if not content:
                 content = "Aucune alternative reçue."
 
-            self.output_queue.put(("call", (self._set_text_widget_content, (result_text, content))))
-            self.output_queue.put(("status", "Alternatives prêtes"))
+            publish("call", (self._set_text_widget_content, (result_text, content)))
+            publish("status", "Alternatives prêtes")
         except Exception as e:
             message = f"Erreur lookup: {str(e)}"
-            self.output_queue.put(("call", (self._set_text_widget_content, (result_text, message))))
-            self.output_queue.put(("status", message))
+            publish("call", (self._set_text_widget_content, (result_text, message)))
+            publish("status", message)
+        finally:
+            if response is not None:
+                response.close()
+            publish("call", (self._finish_lookup, (result_text,)))
+
+    def _finish_lookup(self, widget):
+        if widget in self._pending_lookups:
+            self._pending_lookups.remove(widget)
 
     def _add_history_item(self, item):
         """Ajoute une traduction à l'historique depuis le thread UI."""
@@ -2774,6 +3245,26 @@ class TranslatorApp(tk.Tk if not CTK_SUPPORT else ctk.CTk):
                 self.set_status_text(self.status_label, f"Traduction exportée: {os.path.basename(file_path)}")
             except Exception as e:
                 messagebox.showerror("Erreur", f"Impossible d'exporter:\n{str(e)}")
+
+    def clear_text(self):
+        """Réinitialise les deux zones et ignore les réponses de la génération annulée."""
+        self.stop_event.set()
+        self.stop_event = threading.Event()
+        self.is_translating = False
+        self.source_text.edit_separator()
+        for widget, prefix in ((self.source_text, "source"), (self.target_text, "target")):
+            widget.delete("1.0", tk.END)
+            widget.mark_set(tk.INSERT, "1.0")
+            widget.configure(cursor="xterm")
+            self._refresh_widget_links(widget, prefix)
+        self.source_text.edit_separator()
+        self.update_word_count()
+        self.translation_time = 0.0
+        self.start_time = 0.0
+        self.set_status_text(self.time_label, "Temps: 0.0s")
+        self._update_selection_actions()
+        self.source_text.focus_set()
+        self.set_status_text(self.status_label, "Textes effacés")
 
     def copy_translation(self):
         """Copie la traduction dans le presse-papiers"""

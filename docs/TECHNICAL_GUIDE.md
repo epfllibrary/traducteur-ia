@@ -1,61 +1,64 @@
 # Architecture et développement
 
-Ce guide rassemble les informations techniques destinées aux personnes qui souhaitent comprendre, modifier ou exécuter Traducteur depuis les sources. Pour une utilisation normale sous Windows, utilisez l'installateur indiqué dans le [README](../README.md).
+Pour une utilisation sous Windows, utilisez l'installateur du [README](../README.md). Ce guide décrit le fonctionnement de Traducteur 1.2.0 depuis les sources.
 
 ## Architecture
 
-- **Tkinter et CustomTkinter** : interface graphique.
-- **Threading et Queue** : appels au modèle en arrière-plan et mises à jour sûres de l'interface.
-- **Requests** : communication avec les API Ollama et OpenAI/vLLM, locales ou distantes.
-- **Pystray et Pynput** : icône de notification et raccourcis clavier globaux.
-- **Pdfplumber et Python-docx** : import de documents PDF et Word.
+`translate.py` contient la validation des configurations, les adaptateurs Ollama/OpenAI, les traitements de texte enrichi et la classe `TranslatorApp`. CustomTkinter fournit l'interface principale ; ttk est utilisé comme solution de repli. Pystray et Pynput assurent l'icône et les raccourcis globaux lorsque le système les prend en charge. Requests gère le réseau, Pdfplumber les PDF et Python-docx les documents Word.
 
-La classe `TranslatorApp` gère l'interface et les interactions utilisateur. La configuration, la validation des endpoints, les prompts et les adaptateurs d'API sont regroupés dans `translate.py`. Les appels réseau sont exécutés hors du thread graphique afin de conserver une interface réactive.
+Les requêtes de traduction, d'alternatives et de rafraîchissement des modèles utilisent des threads et une file de messages. Les mises à jour de widgets passent par le thread Tk. Le chargement initial de la liste des modèles s'effectue pendant l'initialisation de la fenêtre, avec un délai maximal réseau.
 
-## Prérequis de développement
+Chaque requête conserve un instantané du serveur, de ses identifiants et des paramètres utilisés. Une bascule de configuration invalide les anciennes générations de messages : leurs réponses tardives et leurs actions différées ne modifient plus la nouvelle configuration. L'arrêt d'affichage ne garantit pas l'annulation d'un calcul déjà reçu par le serveur distant.
 
-- Python 3.11 ou version ultérieure ;
-- un accès à une API Ollama ou compatible OpenAI, locale ou distante ;
-- Ollama et un modèle téléchargé si l'inférence doit fonctionner localement.
+## Lancer depuis les sources
 
-Installez les dépendances :
+Python 3.11 minimum est requis. Dans un environnement virtuel :
 
 ```bash
-pip install -r requirements.txt
-```
-
-## Lancement depuis les sources
-
-```bash
+python -m pip install -r requirements.txt
 python translate.py
 ```
 
-Le fichier de configuration de l'application (`.translator_config.json`) doit normalement être placé à côté de `translate.py` ou sélectionné au démarrage.
+Copiez `.translator_config.example.json` en `.translator_config.json`, à côté de `translate.py`, puis renseignez le serveur. Un sélecteur s'ouvre lorsqu'aucune configuration utilisable n'est disponible. Une API Ollama ou compatible OpenAI doit être accessible pour les traitements.
+
+La distribution et les essais d'interface ciblent Windows 10/11 x64. Une exécution Linux depuis les sources dépend du bureau, de Tk et des permissions de clavier ; aucun paquet Ubuntu ni build Linux validé n'est fourni.
+
+## Configurations et état utilisateur
+
+Le fichier actif est chargé depuis le dernier chemin mémorisé, puis, en l'absence de préférence, depuis `.translator_config.json` près de l'exécutable ou de `translate.py`. Un chemin mémorisé devenu invalide ouvre le sélecteur au lieu de choisir un autre serveur automatiquement. **Fichier > Ouvrir une configuration...** valide un autre fichier avant la bascule.
+
+Le JSON complet contient `api_format`, `server_url`, les langues et les quatre prompts. Au moins `default_model` ou `models_url` doit être renseigné. Les paramètres sont appliqués tels qu'ils sont configurés ; aucun endpoint n'est reconstruit implicitement. Les modèles sont lus dans `models[].name` pour Ollama ou `data[].id` pour OpenAI/vLLM.
+
+- `.translator_preferences.json` conserve le dernier chemin choisi, près de l'application.
+- `.translator_state.json` conserve le dernier modèle, son backend et le pourcentage d'interface, dans le dossier du fichier actif. Plusieurs configurations d'un même dossier partagent ce fichier ; le dernier modèle n'est restauré que si son backend correspond.
+- Les fichiers d'état et les enregistrements de configuration utilisent un remplacement atomique. Les clés API restent dans les configurations JSON ; elles ne sont pas copiées dans les préférences de démarrage.
+- Le fichier actif est surveillé chaque seconde. Une édition invalide laisse la dernière configuration valide en mémoire.
+
+Les menus intégrés, les widgets CTk et les textes Tk suivent le pourcentage d'interface. CustomTkinter détecte la mise à l'échelle Windows ; la géométrie initiale est limitée à la zone disponible du moniteur, hors barre des tâches. Le réglage de 100 % représente la taille normale avec le DPI système.
 
 ## Structure du dépôt
 
-- `translate.py` : application principale ;
-- `requirements.txt` : dépendances Python ;
-- `.translator_config.example.json` : modèle de configuration sans secret ;
-- `installer/` : script Inno Setup de l'installateur Windows ;
-- `scripts/` : scripts de compilation ;
-- `tests/` : tests automatisés ;
-- `img/` : captures d'écran ;
-- `docs/` : documentation complémentaire ;
-- `bin/traducteur-setup.exe` : seul binaire destiné à la distribution.
+| Chemin | Usage |
+| --- | --- |
+| `translate.py` | Application, adaptateurs d'API et interface |
+| `requirements.txt` | Dépendances et versions minimales de sécurité |
+| `.translator_config.example.json` | Configuration complète sans secret |
+| `tests/` | Tests automatisés |
+| `scripts/` | Compilation de l'exécutable et de l'installateur |
+| `installer/traducteur.iss` | Assistant Windows Inno Setup |
+| `docs/`, `img/` | Guides et capture d'écran |
+| `bin/traducteur-setup.exe` | Binaire de distribution suivi par Git |
+| `build/`, `bin/traducteur.exe` | Fichiers de travail et exécutable interne ignorés par Git |
 
-## Compilation, déploiement et dépannage
+## Vérifier et construire
 
-- [Instructions de compilation](BUILD_INSTRUCTIONS.md)
-- [Déploiement et dépannage sous Windows](DEPLOY_WINDOWS.md)
-- [Guide destiné à l'IT](IT_GUIDE.md)
-- [Fonctionnalités et limitations](FEATURES.md)
+Depuis la racine du projet :
 
-Un exécutable PyInstaller doit être produit sur le système d'exploitation cible. Pour Windows, les scripts fournis génèrent d'abord `bin/traducteur.exe` localement, puis l'intègrent à `bin/traducteur-setup.exe`. Seul l'installateur est suivi par Git et publié.
+```bash
+python -m unittest discover -s tests
+git diff --check
+```
 
-## Dépannage de développement
+Les essais de l'interface Windows complètent les tests unitaires : presse-papier, menus, taille, changement de fichier et redémarrage. Les tests unitaires ne nécessitent pas de service de modèles réel.
 
-- **Module introuvable** : réinstallez les dépendances avec `pip install -r requirements.txt`.
-- **Connexion refusée** : vérifiez l'endpoint exact dans `server_url` et, en local, le fonctionnement d'Ollama avec `ollama list`.
-- **Raccourci global inactif** : vérifiez l'installation de `pynput` et les permissions d'accès au clavier.
-- **Import PDF ou Word vide** : vérifiez que le document contient du texte extractible ; l'application n'effectue pas d'OCR.
+Voir les [instructions de compilation](BUILD_INSTRUCTIONS.md), le [guide IT](IT_GUIDE.md), les [fonctionnalités](FEATURES.md), le [dépannage Windows](DEPLOY_WINDOWS.md) et la [publication d'une release](RELEASE.md).

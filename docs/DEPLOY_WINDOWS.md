@@ -1,99 +1,52 @@
-# Instructions de déploiement Windows
+# Déploiement et dépannage sous Windows
 
-## ⚠️ **Important : Cross-compilation**
+## Installer et distribuer
 
-**L'exécutable créé sur Linux ne fonctionne pas sur Windows !**
-- PyInstaller crée des binaires spécifiques à l'OS/architecture
-- Un exe Linux ne peut pas tourner sur Windows
-- Il faut compiler sur le système cible
+Pour une utilisation normale, téléchargez `traducteur-setup.exe` depuis le [dépôt officiel](https://gitlab.epfl.ch/sisb-public/id/traducteur/-/raw/main/bin/traducteur-setup.exe?inline=false) ou les [releases](https://gitlab.epfl.ch/sisb-public/id/traducteur/-/releases), puis suivez l'assistant. Aucun Python n'est nécessaire sur le poste utilisateur.
 
-## Solutions
+Traducteur s'installe pour l'utilisateur courant sous Windows 10/11 x64. Le profil EPFL configure RCP ; les utilisateurs externes choisissent **Autre serveur**, avec Ollama ou OpenAI/vLLM. Le modèle Ollama proposé est `ministral-3:3b`. Le service distant ou local et le modèle doivent être accessibles pour traduire.
 
-### Solution 1 : Compiler sur Windows natif (Recommandée)
-```cmd
-REM Sur Windows, ouvrir PowerShell/Command Prompt
-pip install -r requirements.txt
-pip install pyinstaller
-pyinstaller --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
-```
+Ne distribuez que l'installateur. `bin/traducteur.exe` est un artefact de construction interne. Les paramètres de lancement automatique et d'affichage masqué sont indépendants. Le menu Démarrer contient aussi le désinstalleur.
 
-### Solution 2 : Utiliser Docker (Cross-compilation)
-```bash
-# Depuis Linux/WSL
-docker run --rm -v $(pwd):/app -w /app python:3.11-windowsservercore pyinstaller --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
-```
+## Compiler sous Windows
 
-### Solution 3 : Machine virtuelle Windows
-- Installer Windows dans VirtualBox/VMware
-- Compiler l'exécutable dans la VM
-- Récupérer le fichier .exe généré
+Depuis PowerShell, à la racine du projet :
 
-## Prérequis
-- Windows 10/11
-- Python 3.11+ installé
-- Un serveur Ollama ou compatible OpenAI/vLLM, local ou distant
-
-## Installation des dépendances
-```cmd
-pip install -r requirements.txt
-```
-
-## Création de l'exécutable
-```cmd
-REM Installer PyInstaller
-pip install pyinstaller
-
-REM Créer l'exécutable
-pyinstaller --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
-```
-
-## Distribution
-- Distribuer uniquement `bin/traducteur-setup.exe`; son assistant crée la configuration et peut proposer l'installation officielle d'Ollama
-- Avec Ollama et le modèle installés sur le poste, l'application peut fonctionner entièrement en local : les textes ne quittent pas la machine; Internet n'est requis que pour les téléchargements initiaux ou les mises à jour souhaitées
-- Le profil EPFL préconfigure RCP avec `swiss-ai/Apertus-v1.5-8B`; l'utilisateur crée sa clé sur https://portal.rcp.epfl.ch/aiaas/keys
-- RCP est réservé aux membres de l'EPFL; les utilisateurs externes sélectionnent **Autre serveur** et configurent Ollama ou leur propre endpoint OpenAI/vLLM
-- Ne pas publier séparément `bin/traducteur.exe` : cet artefact interne est intégré à l'installateur
-- Pour un usage local guidé : l'assistant propose `ministral-3:3b`, installe Ollama si nécessaire, affiche les progressions et prépare automatiquement le modèle manquant
-- Le raccourci de démarrage automatique est proposé par défaut et peut être désélectionné indépendamment du réglage d'affichage en arrière-plan
-- Une installation existante est détectée par le registre ou le dossier par défaut; l'assistant propose de réinstaller ou désinstaller, avec une case indépendante pour conserver la configuration
-- Si l'application est en cours d'exécution, l'assistant propose de l'arrêter automatiquement
-- Le menu Démarrer contient une entrée **Désinstaller Traducteur**
-- Le désinstalleur demande si `.translator_config.json` et `.translator_state.json` doivent également être supprimés
-
-## Utilisation
-1. Pour un usage local manuel, lancer `ollama serve` seulement si Ollama n'est pas déjà actif
-2. Vérifier que `.translator_config.json` se trouve à côté de l'exécutable
-3. Exécuter `traducteur.exe`
-4. Importer des fichiers .txt, .docx, .pdf puis traduire
-
-## Dépannage
-- **Erreur "application ne peut pas s'exécuter"** : L'exécutable a été créé sur le mauvais OS
-- Si l'exécutable ne se lance pas : Vérifier les droits d'exécution
-- Erreur de connexion : vérifier que `server_url` contient l'endpoint d'inférence complet ; en local, vérifier qu'Ollama fonctionne (`ollama list`)
-- Fichiers non supportés : Installer python-docx et pdfplumber
-
-## Scripts de build automatisés
-
-### Scripts disponibles (Corrigés)
-- `scripts/build_windows.ps1` : Script PowerShell (recommandé)
-- `scripts/build_windows.bat` : Script batch pour cmd
-- `scripts/build_installer.ps1` : Script PowerShell pour Inno Setup 6
-- `docs/BUILD_INSTRUCTIONS.md` : Instructions détaillées
-
-### Utilisation
-```cmd
-REM Sur Windows, dans le dossier du projet
+```powershell
 .\scripts\build_windows.ps1
-
-REM Puis, après installation d'Inno Setup 6
 .\scripts\build_installer.ps1
 ```
 
-## Alerte Windows actuelle
+Installez Python 3.11+ et Inno Setup 6 sur cette machine, avec un accès Internet pour les dépendances et l'audit. Les scripts créent un environnement isolé dans `build/venv-windows` et refusent la compilation si `pip check` ou `pip-audit` échoue. Voir le [guide de compilation](BUILD_INSTRUCTIONS.md).
 
-L'exécutable et l'installateur ne sont pas encore signés numériquement. Windows peut donc afficher « Éditeur inconnu » ou une alerte SmartScreen. Il ne faut jamais recommander de désactiver SmartScreen globalement; l'utilisateur ne doit poursuivre que si le fichier provient du dépôt officiel. Cette limitation sera levée lorsque le projet disposera d'un certificat de signature de code.
+PyInstaller produit un binaire pour le système sur lequel son interpréteur s'exécute. Un build Python Linux ne produit pas un exécutable Windows. Une machine ou une VM Windows convient ; depuis WSL, il faut utiliser un interpréteur **Windows**. Les scripts PowerShell et batch sont destinés à Windows. Il n'y a pas de procédure Docker de compilation croisée prise en charge dans ce projet.
 
-### Dépannage des scripts
-- **Erreur d'encodage** : Scripts corrigés avec caractères ASCII simples
-- **requirements.txt introuvable** : Vérification explicite du fichier
-- **PowerShell bloqué** : `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
+## Configuration et mise à jour
+
+L'assistant crée `.translator_config.json` à côté de l'application. L'utilisateur peut ensuite ouvrir un autre JSON complet par **Fichier > Ouvrir une configuration...**, ou modifier celui qui est actif par **Fichier > Modifier la configuration...**. Le nom actif reste affiché ; les textes sont conservés lors d'une bascule. Le dernier chemin choisi est prioritaire au prochain démarrage.
+
+Les fichiers locaux sont :
+
+- `.translator_config.json`, ou un autre fichier choisi : serveur, clé API, langues et consignes ;
+- `.translator_state.json`, dans le dossier de la configuration active : dernier modèle utilisé et taille de l'interface ;
+- `.translator_preferences.json`, dans le dossier de l'application : chemin de la dernière configuration.
+
+Le désinstalleur peut supprimer les fichiers internes de l'installation si l'utilisateur le choisit. Les configurations nommées ou placées dans d'autres dossiers ne sont pas supprimées automatiquement. Une réinstallation propose de conserver les réglages. Avant un déploiement institutionnel, sauvegardez les configurations nécessaires sans exposer leurs clés API.
+
+## Dépannage
+
+| Symptôme | Vérification |
+| --- | --- |
+| Windows refuse le lancement | Utiliser le build Windows x64 et vérifier la provenance du setup |
+| Alerte SmartScreen ou éditeur inconnu | Le projet n'est pas encore signé ; ne poursuivre qu'après vérification de la provenance |
+| Connexion refusée | Vérifier `server_url`, le réseau et le service ; avec Ollama local, vérifier `ollama list` |
+| Modèle inattendu | Vérifier le fichier actif et le dernier modèle sélectionné ; le défaut Ollama proposé est `ministral-3:3b` |
+| Configuration introuvable au lancement | Sélectionner un fichier valide ; le dernier chemin mémorisé est devenu inaccessible |
+| Bas de fenêtre ou texte trop petit | Utiliser **Affichage > Taille de l'interface** ; la taille initiale tient compte du zoom et de l'écran |
+| La croix ne ferme pas l'application | Utiliser **Fichier > Quitter** ou **Quitter** depuis l'icône près de l'horloge |
+| PDF importé vide | Le document doit contenir du texte extractible ; aucune reconnaissance OCR n'est intégrée |
+| Dépendance manquante dans un build | Reconstruire dans l'environnement isolé avec `requirements.txt`, puis reconstruire le setup |
+
+## Téléchargement d'une version
+
+La [procédure de release](RELEASE.md) décrit le tag versionné et le lien permanent vers le setup de la dernière release. Les archives de code source générées par GitLab ne sont pas des installateurs Windows.

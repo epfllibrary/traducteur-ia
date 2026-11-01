@@ -5,7 +5,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 Set-Location $repoRoot
 
-Write-Host "=== Build Traducteur 1.1.1 pour Windows ===" -ForegroundColor Green
+Write-Host "=== Build Traducteur 1.2.0 pour Windows ===" -ForegroundColor Green
 
 # Verifier Python
 try {
@@ -56,7 +56,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Creation de l'executable..." -ForegroundColor Blue
-& $buildPython -m PyInstaller --clean --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
+& $buildPython -m PyInstaller --clean --onefile --windowed --add-data "../LICENSE:." --distpath bin --specpath build --name traducteur translate.py
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERREUR lors de la creation de l'executable" -ForegroundColor Red

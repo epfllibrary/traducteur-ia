@@ -1,88 +1,61 @@
-# Instructions pour créer l'exécutable Windows
+# Compiler Traducteur pour Windows
 
-## Problèmes résolus
-- ❌ Caractères spéciaux (accents, emojis) causaient des erreurs d'encodage
-- ❌ Script .bat ne trouvait pas requirements.txt
-- ✅ Scripts corrigés avec caractères ASCII simples
-- ✅ Vérification explicite du fichier requirements.txt
+## Prérequis
 
-## Utilisation
+La machine de construction nécessite Windows 10/11 x64, Python 3.11+, Inno Setup 6 et un accès Internet pour les dépendances et l'audit. Les utilisateurs du setup n'ont pas besoin de Python. Conservez l'arborescence complète du dépôt, notamment `LICENSE`, `requirements.txt`, `scripts/`, `installer/` et `.translator_config.example.json`.
 
-Python 3.11 minimum est requis pour les versions corrigées de Pillow. Les scripts
-créent un environnement isolé dans `build/venv-windows`, actualisent les dépendances,
-vérifient leur compatibilité avec `pip check` et lancent `pip-audit` sur les paquets
-installés avant PyInstaller. Une vulnérabilité connue ou un échec de l'audit bloque
-la compilation ; un accès Internet est nécessaire pour cette vérification.
+Les scripts s'exécutent depuis une session Windows. Depuis WSL, utilisez un interpréteur Python Windows ; un interpréteur Linux produit un binaire Linux. Aucun build Linux/Ubuntu n'est distribué actuellement.
 
-### Sur Windows avec PowerShell (Recommandé)
-1. Copiez tous les fichiers du projet sur Windows
-2. Ouvrez PowerShell
-3. Allez dans le dossier du projet
-4. Exécutez : `.\scripts\build_windows.ps1`
+## Construire l'exécutable puis le setup
 
-### Sur Windows avec CMD
-1. Copiez tous les fichiers du projet sur Windows
-2. Ouvrez l'invite de commande (cmd)
-3. Allez dans le dossier du projet
-4. Exécutez : `scripts\build_windows.bat`
+Depuis PowerShell, à la racine du dépôt :
 
-## Dépannage
-
-### Si PowerShell bloque l'exécution
 ```powershell
-# Autoriser l'exécution de scripts
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\scripts\build_windows.ps1
+.\scripts\build_installer.ps1
 ```
 
-### Si pip n'est pas trouvé
-- Assurez-vous que Python est installé et dans le PATH
-- Utilisez `py -m pip` au lieu de `pip`
+Depuis CMD, le premier script peut être remplacé par `scripts\build_windows.bat`. Le script de l'installateur reste un script PowerShell. Inno Setup 6 peut être installé avec `winget install --id JRSoftware.InnoSetup -e`.
 
-### Fichiers requis
-Assurez-vous d'avoir ces fichiers dans le même dossier :
-- `translate.py`
-- `requirements.txt`
-- `scripts/build_windows.ps1` ou `scripts/build_windows.bat`
-- `.translator_config.example.json` pour préparer la configuration obligatoire
+Le premier script crée `build/venv-windows`, met à jour les dépendances et PyInstaller, exécute `pip check` puis `pip-audit`, et construit `bin/traducteur.exe`. Une incompatibilité ou une vulnérabilité connue bloque ce script. Le second script intègre cet exécutable dans `bin/traducteur-setup.exe`. Il faut exécuter les deux : le premier ne reconstruit pas automatiquement le setup.
 
-## Résultat attendu
-- Dossier `bin/` créé avec `traducteur.exe`
-- Taille approximative : 50 Mo
-- Exécutable standalone (pas besoin de Python sur le système cible)
+Les scripts embarquent le fichier `LICENSE` avec `--add-data "../LICENSE:."`. Le chemin source est relatif au dossier `build` du fichier `.spec`. La licence complète est ainsi accessible hors ligne dans **Aide > À propos...**.
 
-## Création de l'installateur guidé
+Les sorties font environ 45 Mo, selon les dépendances. Seul `bin/traducteur-setup.exe` est destiné à la distribution et suivi par Git. Une modification de code, de dépendances ou de version exige de reconstruire l'exécutable puis le setup.
 
-Après avoir créé `bin/traducteur.exe` :
+## Vérifier avant distribution
 
-1. Installez [Inno Setup 6](https://jrsoftware.org/isinfo.php), ou exécutez `winget install --id JRSoftware.InnoSetup -e`.
-2. Lancez `.\scripts\build_installer.ps1` depuis PowerShell.
-3. Récupérez `bin\traducteur-setup.exe`. C'est le seul fichier destiné à être publié.
+```powershell
+python -m unittest discover -s tests
+git diff --check
+```
 
-L'assistant demande d'abord de choisir entre l'environnement EPFL/RCP et un autre serveur. Pour un autre serveur, il propose ensuite Ollama ou OpenAI/vLLM, puis préremplit directement les URL exactes d'inférence et de modèles; elles restent modifiables. Une installation existante est recherchée dans le registre et dans le dossier par défaut; l'utilisateur choisit entre réinstaller et désinstaller, avec une case indépendante pour conserver la configuration et le dernier modèle utilisé. Une instance active peut être arrêtée automatiquement après confirmation. L'assistant ajoute au menu Démarrer un raccourci vers le désinstalleur, qui demande à son tour si les données utilisateur doivent être supprimées. Il sépare le réglage d'affichage en arrière-plan de la création du raccourci dans le dossier de démarrage Windows. Avec Ollama local, `ministral-3:3b` est proposé par défaut. Si Ollama est absent, l'assistant affiche la progression de son téléchargement avant de lancer l'installateur officiel. Il démarre ensuite le service s'il ne répond pas déjà et exécute `ollama pull` avec sa progression visible lorsque le modèle manque.
+Vérifiez aussi la fenêtre Windows, les menus, les raccourcis et la bascule de configuration. Les versions de `APP_VERSION` dans `translate.py`, `MyAppVersion` dans `installer/traducteur.iss`, `VersionInfoVersion`, le README et les bannières de construction doivent correspondre. Pour 1.2.0, la version Windows est `1.2.0.0` et le tag prévu est `v1.2.0`.
 
-Le profil **EPFL (Service RCP)** préconfigure `https://inference.rcp.epfl.ch/v1/chat/completions`, `https://inference.rcp.epfl.ch/v1/models` et le modèle `swiss-ai/Apertus-v1.5-8B`. Une clé doit être créée lors de la première utilisation sur [portal.rcp.epfl.ch/aiaas/keys](https://portal.rcp.epfl.ch/aiaas/keys). RCP étant réservé aux membres de l'EPFL, les utilisateurs externes doivent choisir **Autre serveur**.
+Le script `python scripts/prepare_release.py` prépare les notes, l'empreinte du setup et le JSON de publication localement. La [procédure de release](RELEASE.md) décrit ensuite le commit, le tag et la publication GitLab.
 
-Le même `AppId` doit être conservé entre les versions : Inno Setup et la détection explicite reconnaissent ainsi l'installation existante. Les mutex empêchent plusieurs instances de l'application ou de l'installateur; l'installateur gère lui-même la fermeture de l'application.
+## Assistant d'installation
 
-L'installateur et l'exécutable ne sont pas encore signés. Une alerte SmartScreen est donc possible jusqu'à l'ajout d'un certificat de signature de code.
+L'installation est faite pour l'utilisateur courant. L'assistant distingue l'environnement EPFL/RCP d'un autre serveur Ollama ou OpenAI/vLLM. Il crée `.translator_config.json` et permet de régler les URL exactes, le modèle, la clé API et les options de démarrage.
 
-Le téléchargement automatique d'Ollama utilise une URL versionnée et vérifie son
-SHA-256 avant toute exécution. Pour actualiser Ollama, modifier ensemble
-`OllamaSetupURL` et `OllamaSetupSHA256` dans `installer/traducteur.iss`, à partir du
-fichier `sha256sum.txt` de la [publication officielle](https://github.com/ollama/ollama/releases).
-Ne pas remplacer l'URL par une adresse « latest » sans mettre à jour l'empreinte.
+Ollama local propose `ministral-3:3b`. La préparation facultative peut télécharger Ollama, démarrer le service et télécharger le modèle manquant. Le profil EPFL propose `swiss-ai/Apertus-v1.5-8B` ; une clé personnelle RCP est nécessaire. Les deux services sont décrits dans le [README](../README.md).
 
-Après une mise à jour de sécurité, reconstruire d'abord `traducteur.exe`, puis
-`traducteur-setup.exe` : modifier `requirements.txt` ne corrige pas les exécutables
-déjà générés ou installés.
+Conservez le même `AppId` entre versions. Une installation existante est détectée et peut être réinstallée ou désinstallée, avec conservation facultative des réglages. Les mutex empêchent plusieurs instances ; l'assistant peut demander la fermeture de l'application. Le désinstalleur est également disponible dans le menu Démarrer.
 
-## Utilisation de l'exécutable
-1. Copiez `.translator_config.example.json` en `bin/.translator_config.json` et adaptez le serveur et le modèle.
-2. Pour un usage local manuel, installez Ollama, téléchargez le modèle configuré et lancez `ollama serve` uniquement si le service n'est pas déjà actif.
-3. Double-cliquez sur `traducteur.exe`.
+## Sécurité et mises à jour d'Ollama
 
-## Configuration obligatoire
-Le fichier `.translator_config.json` doit définir `server_url`, les langues et les quatre prompts, puis être placé à côté de l'exécutable. S'il est absent, l'application demande de sélectionner une configuration valide.
-`server_url` doit contenir l'endpoint complet : l'application l'utilise sans ajouter `/api/chat`. `default_model` est facultatif si `models_url` est renseignée; au moins l'une de ces deux valeurs est nécessaire.
-Utilisez `"api_format": "openai"` pour un endpoint vLLM `/v1/chat/completions`, ou `"api_format": "ollama"` pour `/api/chat`.
-Si le serveur exige une clé, renseignez `api_key` dans `.translator_config.json`. Ne partagez pas ce fichier avec une vraie clé.
+Le téléchargement d'Ollama utilise une URL versionnée et un SHA-256 vérifié avant exécution. Lors d'une mise à jour, modifier ensemble `OllamaSetupURL` et `OllamaSetupSHA256` dans `installer/traducteur.iss`, à partir de `sha256sum.txt` de la [publication officielle](https://github.com/ollama/ollama/releases).
+
+L'exécutable et l'installateur ne sont pas encore signés. Une alerte Windows/SmartScreen est possible ; voir le [guide de déploiement](DEPLOY_WINDOWS.md).
+
+## Dépannage de construction
+
+- **Python introuvable** : installer Python 3.11+ et vérifier son accès dans le terminal Windows.
+- **Script PowerShell bloqué** : utiliser une politique d'exécution autorisée par votre organisation ; aucune session administrateur n'est requise pour construire Traducteur dans un dossier utilisateur.
+- **Fichier introuvable** : récupérer tout le dépôt et conserver les chemins relatifs.
+- **Audit en échec** : examiner les dépendances signalées et reconstruire après correction.
+- **Inno Setup introuvable** : l'installer ou utiliser le paramètre `-InnoCompiler` de `build_installer.ps1`.
+
+## Exécuter l'artefact interne pour un essai
+
+Copiez `.translator_config.example.json` en `bin/.translator_config.json` et adaptez les paramètres avant de lancer `bin/traducteur.exe`. Un autre fichier complet peut être choisi au démarrage ou par **Fichier > Ouvrir une configuration...**. Le dernier chemin choisi est mémorisé. Ne distribuez pas les configurations contenant des clés API.

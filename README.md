@@ -1,14 +1,16 @@
-# Traducteur IA (1.1.1)
+# Traducteur IA (1.2.0)
 
-Traducteur IA 1.1.1 est une application Windows conçue pour traduire et réécrire des textes, ainsi que pour rédiger des courriels, depuis une interface graphique ou directement à partir du presse-papiers. Elle permet de travailler rapidement tout en préservant autant que possible la structure du contenu, notamment les liens, les titres, le gras et l'italique.
+Traducteur IA 1.2.0 est une application Windows conçue pour traduire et réécrire des textes, ainsi que pour rédiger des courriels, depuis une interface graphique ou directement à partir du presse-papiers. Elle permet de travailler rapidement tout en préservant autant que possible la structure du contenu, notamment les liens, les titres, le gras et l'italique.
 
 L'application s'appuie sur un grand modèle de langage (LLM) accessible par une API Ollama ou OpenAI/vLLM. Selon vos besoins, ce modèle peut être exécuté localement sur votre ordinateur ou hébergé sur un serveur distant. Le projet vise à offrir une interface de traduction pratique tout en laissant l'organisation ou l'utilisateur maîtriser l'emplacement et les conditions de traitement des données.
 
-Traducteur est un logiciel libre sous licence GPLv3, conçu pour rester ouvert et adaptable. Les instructions des modes **Traduire**, **Réécrire** et **E-mail**, ainsi que celles de la fonction **Alternatives**, ne sont pas figées dans le programme : chacun peut modifier les prompts correspondants dans le fichier de configuration pour les adapter à son vocabulaire, son ton, son domaine professionnel ou ses règles rédactionnelles, sans modifier ni recompiler le code.
+Traducteur est un logiciel libre sous licence GPLv3 ou ultérieure, conçu pour rester ouvert et adaptable. Les instructions des modes **Traduire**, **Réécrire** et **E-mail**, ainsi que celles de la fonction **Alternatives**, ne sont pas figées dans le programme : chacun peut modifier les prompts correspondants dans le fichier de configuration pour les adapter à son vocabulaire, son ton, son domaine professionnel ou ses règles rédactionnelles, sans modifier ni recompiler le code.
 
 ## 🖼️ Aperçu
 
-![Aperçu de l'interface de Traducteur IA 1.1.1](img/Exemple_interface.png)
+![Aperçu de l'interface de Traducteur IA 1.2.0](img/Exemple_interface.png)
+
+L’interface et l’installateur sont actuellement en français. Aucun paquet Linux/Ubuntu n’est encore distribué.
 
 ## 🤖 Principe de fonctionnement
 
@@ -27,9 +29,9 @@ L'application n'anonymise pas automatiquement le contenu. Les informations perso
 
 ## 🚀 Installation sous Windows
 
-L'installateur fourni est la méthode recommandée. Python et les dépendances du projet ne sont pas nécessaires.
+L'installateur fourni est la méthode recommandée pour Windows 10/11 x64. Python et les dépendances du projet ne sont pas nécessaires. Les versions publiées seront regroupées dans les [releases GitLab](https://gitlab.epfl.ch/sisb-public/id/traducteur/-/releases).
 
-1. Téléchargez [`bin/traducteur-setup.exe`](bin/traducteur-setup.exe) et lancez-le.
+1. **[Téléchargez le setup Windows](https://gitlab.epfl.ch/sisb-public/id/traducteur/-/raw/main/bin/traducteur-setup.exe?inline=false)** et lancez-le.
 2. Suivez l'assistant et adaptez les choix proposés à votre usage local ou distant.
 3. Lancez Traducteur depuis l'assistant, le menu Démarrer ou son raccourci facultatif sur le bureau.
 
@@ -49,6 +51,11 @@ Si Traducteur est déjà installé, l'assistant le détecte dans le registre Win
 - **Design professionnel** : Interface inspirée de DeepL avec CustomTkinter
 - **Thème moderne** : Couleurs et polices optimisées pour une expérience utilisateur fluide
 - **Layout équilibré** : Division 50/50 des zones de texte source et traduction
+- **Effacement rapide** : Le bouton `Effacer` vide les deux zones, remet les compteurs à zéro et demande l'arrêt de la génération en cours ; les résultats précédents restent dans l'historique
+- **Aide intégrée** : `Aide > Utilisation et raccourcis...`, ou `F1`, présente les fonctions et les raccourcis dans une fenêtre consultable pendant le travail
+- **À propos** : `Aide > À propos...` présente l'auteur, son profil EPFL et le dépôt du projet, ainsi que les rappels d'utilisation et la licence complète consultable hors ligne
+- **Taille de l'interface** : `Affichage > Taille de l'interface` propose 80, 90, 100, 110, 125 et 150 %. Le réglage s'ajoute à la mise à l'échelle Windows et est mémorisé dans `.translator_state.json`, avec le dernier modèle utilisé. La taille initiale de la fenêtre tient compte de l'espace disponible sur l'écran.
+- **Changer de configuration** : `Fichier > Ouvrir une configuration...` charge un fichier JSON existant (`EPFL.json`, `Ollama.json`, etc.). Son nom reste affiché en haut de la fenêtre. Les textes sont conservés et les traitements en cours sont interrompus avant la bascule. Un fichier invalide laisse la configuration actuelle active.
 - **Mode veille** : La croix masque la fenêtre, l'application reste active en arrière-plan
 - **Démarrage automatique optionnel** : L'installateur peut ajouter un raccourci au démarrage de la session Windows
 - **Arrière-plan indépendant** : Le lancement automatique et l'affichage en arrière-plan sont deux choix distincts
@@ -62,6 +69,7 @@ Si Traducteur est déjà installé, l'assistant le détecte dans le registre Win
 - **Modes personnalisables** : Les prompts de traduction, réécriture, e-mail et recherche d'alternatives sont entièrement modifiables dans la configuration
 - **Action contextuelle** : Le bouton principal reprend automatiquement le mode sélectionné (`Traduire`, `Réécrire` ou `E-mail`)
 - **Copie rapide** : Bouton `Copier` pour envoyer la traduction dans le presse-papier
+- **Copie au clavier** : `Ctrl+Alt+C` copie le résultat complet ; `Ctrl+Maj+C` reste réservé au traitement du presse-papiers
 - **Inversion intelligente** : Le bouton d'inversion reprend la traduction comme nouveau texte source quand elle existe, puis relance la traduction automatiquement
 - **Alternatives contextuelles** : La fonction `lookup`, nommée **Alternatives** dans l'interface, utilise le segment sélectionné, le texte source et la traduction actuelle pour proposer des formulations de remplacement avec leurs nuances; elle est accessible par le bouton contextuel, un clic droit ou `Ctrl+L`
 - **Liens préservés** : Les prompts demandent explicitement de conserver les liens, URL et destinations Markdown/HTML
@@ -113,6 +121,8 @@ Le comportement de chaque mode est défini par un prompt lisible et modifiable. 
 Les changements valides sont appliqués automatiquement, sans redémarrage ni recompilation. Les variables telles que `{text}`, `{source_language}` et `{target_language}` doivent simplement être conservées lorsqu'elles sont nécessaires au mode. Le prompt `lookup` peut également utiliser `{translation}` et `{selection}`. Cette architecture permet à une personne, une équipe ou une institution de définir ses propres règles tout en gardant la même interface.
 
 Dans une installation normale, l'assistant crée ce fichier à côté de l'exécutable et l'application le retrouve automatiquement. Lors d'un lancement depuis les sources, placez-le à côté de `translate.py`. Si aucun fichier n'est trouvé, un sélecteur permet de choisir une configuration JSON; l'application ne démarre pas si la sélection est annulée ou si le fichier est invalide.
+
+Vous pouvez conserver plusieurs fichiers complets, par exemple `EPFL.json` et `Ollama.json`, puis passer de l'un à l'autre par **Fichier > Ouvrir une configuration...**. Chaque fichier définit son serveur, ses identifiants, ses langues et ses consignes. Le dernier chemin choisi est enregistré automatiquement dans `.translator_preferences.json`, à côté de l'exécutable (ou de `translate.py`), sans recopier les clés API. Ce fichier interne ne nécessite aucune édition manuelle. Au prochain démarrage, cette configuration est prioritaire ; si elle est devenue introuvable ou invalide, l'application demande un autre fichier au lieu de changer silencieusement de serveur.
 
 Exemple :
 ```json
@@ -211,6 +221,7 @@ Le README reste centré sur l'installation, l'utilisation et la personnalisation
 - [Déploiement et dépannage sous Windows](docs/DEPLOY_WINDOWS.md)
 - [Guide de déploiement pour l'IT](docs/IT_GUIDE.md)
 - [Fonctionnalités, limitations et dépannage](docs/FEATURES.md)
+- [Publication d’une release et téléchargement permanent](docs/RELEASE.md)
 
 ## 📋 Changelog
 
@@ -224,8 +235,8 @@ Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou pr
 
 Ce projet a été développé avec l'aide d'OpenAI Codex et mené par :
 
-Sylvain Vuilleumier  
-Documentary engineering specialist -- EPFL  
+[Sylvain Vuilleumier](https://people.epfl.ch/sylvain.vuilleumier), Documentary engineering specialist — EPFL.
+
 sylvain.vuilleumier@epfl.ch
 
 ## 📄 Licence

@@ -1,6 +1,6 @@
 @echo off
 pushd "%~dp0.."
-echo === Build Traducteur 1.1.1 pour Windows ===
+echo === Build Traducteur 1.2.0 pour Windows ===
 echo.
 
 REM Verifier Python
@@ -60,7 +60,7 @@ if errorlevel 1 (
     exit /b 1
 )
 echo Creation de l'executable...
-"%BUILD_PYTHON%" -m PyInstaller --clean --onefile --windowed --distpath bin --specpath build --name traducteur translate.py
+"%BUILD_PYTHON%" -m PyInstaller --clean --onefile --windowed --add-data "../LICENSE:." --distpath bin --specpath build --name traducteur translate.py
 if errorlevel 1 (
     echo ERREUR lors de la creation de l'executable
     pause

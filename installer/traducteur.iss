@@ -1,5 +1,5 @@
 #define MyAppName "Traducteur"
-#define MyAppVersion "1.1.1"
+#define MyAppVersion "1.2.0"
 #define MyAppPublisher "Sylvain Vuilleumier"
 #define MyAppURL "https://gitlab.epfl.ch/sisb-public/id/traducteur"
 #define MyAppExeName "traducteur.exe"
@@ -38,7 +38,7 @@ WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 LicenseFile=..\LICENSE
 UninstallDisplayIcon={app}\{#MyAppExeName}
-VersionInfoVersion=1.1.1.0
+VersionInfoVersion=1.2.0.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=Installateur de Traducteur
 VersionInfoProductName={#MyAppName}
@@ -582,6 +582,7 @@ begin
     Exit;
   DeleteFile(AddBackslash(InstallLocation) + '.translator_config.json');
   DeleteFile(AddBackslash(InstallLocation) + '.translator_state.json');
+  DeleteFile(AddBackslash(InstallLocation) + '.translator_preferences.json');
 end;
 
 procedure DeleteUninstallRegistryEntries;
@@ -1229,5 +1230,6 @@ begin
   begin
     DeleteFile(ExpandConstant('{app}\.translator_config.json'));
     DeleteFile(ExpandConstant('{app}\.translator_state.json'));
+    DeleteFile(ExpandConstant('{app}\.translator_preferences.json'));
   end;
 end;
